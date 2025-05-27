@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organization Graph</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            cursor: grab;
+            background: radial-gradient(circle at 50% 50%, #2a2a2a 0%, #1a1a1a 100%);
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(42, 42, 42, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            color: #ccc;
+            margin-bottom: 5px;
+        }
+
+        .control-group button {
+            background: #4a4a4a;
+            border: 1px solid #666;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            font-size: 11px;
+        }
+
+        .control-group button:hover {
+            background: #5a5a5a;
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(42, 42, 42, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .legend-line {
+            width: 20px;
+            height: 2px;
+            margin-right: 8px;
+        }
+
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(42, 42, 42, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            font-size: 11px;
+            color: #aaa;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="graph-canvas"></canvas>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>View Controls</label>
+                <button id="reset-view-btn">Reset View</button>
+                <button onclick="graph.centerGraph()">Center</button>
+            </div>
+            <div class="control-group">
+                <label>Physics</label>
+                <button id="physics-btn">Pause Physics</button>
+            </div>
+            <div class="control-group">
+                <label>Toggle Visibility</label>
+                <button id="toggle-projects-btn">Hide Projects</button>
+                <button id="toggle-mentorships-btn">Hide Mentorships</button>
+                <button id="toggle-teams-btn">Hide Teams</button>
+            </div>
+        </div>        <div class="legend">
+            <h3 style="margin-bottom: 12px; font-size: 14px;">Legend</h3>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #64b5f6;"></span> Employee
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #81c784;"></span> Team
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #9370DB;"></span> Project
+            </div>
+            <div class="legend-item">
+                <span class="legend-line" style="background-color: #90a4ae;"></span> Team Member
+            </div>
+            <div class="legend-item">
+                <span class="legend-line" style="background-color: #ffb74d; height: 3px;"></span> Mentor Relationship
+            </div>
+            <div class="legend-item">
+                <span class="legend-line" style="background-color: #9370DB; height: 2px; opacity: 0.7;"></span> Project Assignment
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>Controls:</strong><br>
+            • Click and drag nodes to move them<br>
+            • Click and drag empty space to pan<br>
+            • Mouse wheel to zoom in/out<br>
+            • Hover over nodes for details
+        </div>
+    </div>
+
+    <script src="graph.js"></script>
+    <script>
+        const graph = new OrganizationGraph('graph-canvas');
+        graph.loadData();
+
+        document.getElementById('physics-btn').addEventListener('click', () => graph.togglePhysics());
+        document.getElementById('reset-view-btn').addEventListener('click', () => graph.resetView());
+        document.getElementById('toggle-projects-btn').addEventListener('click', () => graph.toggleProjectsVisibility());
+        document.getElementById('toggle-mentorships-btn').addEventListener('click', () => graph.toggleMentorshipsVisibility());
+        document.getElementById('toggle-teams-btn').addEventListener('click', () => graph.toggleTeamsVisibility());
+    </script>
+</body>
+</html>
