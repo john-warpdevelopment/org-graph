@@ -110,6 +110,88 @@
             width: 20px;
             height: 2px;
             margin-right: 8px;
+        }        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(42, 42, 42, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            min-width: 300px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #2a2a2a;
+            border: 1px solid #666;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: #64b5f6;
+        }
+
+        .search-input::placeholder {
+            color: #aaa;
+        }
+
+        .search-results {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 8px;
+            border-radius: 4px;
+            background: #2a2a2a;
+            border: 1px solid #666;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #444;
+            font-size: 12px;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:hover {
+            background: #3a3a3a;
+        }
+
+        .search-result-type {
+            color: #aaa;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .clear-search {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: none;
+        }
+
+        .search-wrapper {
+            position: relative;
         }
 
         .info {
@@ -128,9 +210,22 @@
         }
     </style>
 </head>
-<body>
-    <div class="container">
+<body>    <div class="container">
         <canvas id="graph-canvas"></canvas>
+        
+        <div class="search-container">
+            <div class="search-wrapper">
+                <input 
+                    type="text" 
+                    id="search-input" 
+                    class="search-input" 
+                    placeholder="Search for people, teams, or projects..."
+                    autocomplete="off"
+                >
+                <button id="clear-search" class="clear-search">×</button>
+            </div>
+            <div id="search-results" class="search-results"></div>
+        </div>
         
         <div class="controls">
             <div class="control-group">
@@ -158,9 +253,8 @@
             </div>
             <div class="legend-item">
                 <span class="legend-color" style="background-color: #9370DB;"></span> Project
-            </div>
-            <div class="legend-item">
-                <span class="legend-line" style="background-color: #90a4ae;"></span> Team Member
+            </div>            <div class="legend-item">
+                <span class="legend-line" style="background-color: #81c784;"></span> Team Member
             </div>
             <div class="legend-item">
                 <span class="legend-line" style="background-color: #ffb74d; height: 3px;"></span> Mentor Relationship
@@ -177,18 +271,137 @@
             • Mouse wheel to zoom in/out<br>
             • Hover over nodes for details
         </div>
-    </div>
-
-    <script src="graph.js"></script>
+    </div>    <script src="graph.js"></script>
     <script>
         const graph = new OrganizationGraph('graph-canvas');
-        graph.loadData();
+         // Sample organization data
+        const data = {
+            departments: [
+                { id: 'dept1', name: 'Bespoke', description: 'Custom development solutions' },
+                { id: 'dept2', name: 'OrderEazi', description: 'Order management platform' }
+            ],
+            projects: [
+                { id: 'proj1', name: 'Phoenix Initiative', description: 'Next-gen platform', department: 'dept1' },
+                { id: 'proj2', name: 'Orion Integration', description: 'Third-party API link', department: 'dept1' },
+                { id: 'proj3', name: 'Vega Analytics', description: 'Data dashboard', department: 'dept2' },
+                { id: 'proj4', name: 'Sirius Mobile', description: 'Mobile app development', department: 'dept2' }
+            ],
+            employees: [
+                { id: 'emp1', name: 'Alice Johnson', role: 'Senior Developer', team: 'team1', department: 'dept1', projects: ['proj1', 'proj2'] },
+                { id: 'emp2', name: 'Bob Smith', role: 'Product Manager', team: 'team1', department: 'dept1', projects: ['proj1'] },
+                { id: 'emp3', name: 'Carol Davis', role: 'Designer', team: 'team2', department: 'dept2', projects: ['proj3', 'proj4'] },
+                { id: 'emp4', name: 'David Wilson', role: 'Developer', team: 'team1', department: 'dept1', mentor: 'emp1', projects: ['proj2'] },
+                { id: 'emp5', name: 'Eve Brown', role: 'Developer', team: 'team2', department: 'dept2', projects: ['proj3'] },
+                { id: 'emp6', name: 'Frank Miller', role: 'Team Lead', team: 'team2', department: 'dept2', mentor: 'emp5', projects: ['proj4', 'proj3'] },
+                { id: 'emp7', name: 'Grace Lee', role: 'Junior Developer', team: 'team2', department: 'dept2', mentor: 'emp5', projects: ['proj4'] },
+                { id: 'emp8', name: 'Henry Taylor', role: 'QA Engineer', team: 'team3', department: 'dept1', projects: ['proj1'] },
+                { id: 'emp9', name: 'Ivy Chen', role: 'DevOps Engineer', team: 'team3', department: 'dept2', projects: [] },
+                { id: 'emp10', name: 'Jack Anderson', role: 'Intern', team: 'team1', department: 'dept1', mentor: 'emp1', projects: ['proj2'] }
+            ],
+            teams: [
+                { id: 'team1', name: 'Frontend Team', description: 'Responsible for user interface development', department: 'dept1' },
+                { id: 'team2', name: 'Backend Team', description: 'Handles server-side development', department: 'dept2' },
+                { id: 'team3', name: 'Infrastructure Team', description: 'Manages deployment and infrastructure', department: 'dept1' }
+            ]
+        };
+        graph.loadData(data);
 
+        // Existing button event listeners
         document.getElementById('physics-btn').addEventListener('click', () => graph.togglePhysics());
         document.getElementById('reset-view-btn').addEventListener('click', () => graph.resetView());
         document.getElementById('toggle-projects-btn').addEventListener('click', () => graph.toggleProjectsVisibility());
         document.getElementById('toggle-mentorships-btn').addEventListener('click', () => graph.toggleMentorshipsVisibility());
         document.getElementById('toggle-teams-btn').addEventListener('click', () => graph.toggleTeamsVisibility());
+
+        // Search functionality
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+        const clearSearchBtn = document.getElementById('clear-search');
+
+        function showSearchResults(results) {
+            searchResults.innerHTML = '';
+            
+            if (results.length === 0) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            searchResults.style.display = 'block';
+            
+            results.forEach(node => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'search-result-item';
+                
+                const typeSpan = document.createElement('div');
+                typeSpan.className = 'search-result-type';
+                typeSpan.textContent = node.type;
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.textContent = node.label;
+                
+                if (node.role) {
+                    const roleDiv = document.createElement('div');
+                    roleDiv.style.fontSize = '10px';
+                    roleDiv.style.color = '#aaa';
+                    roleDiv.textContent = node.role;
+                    resultItem.appendChild(nameDiv);
+                    resultItem.appendChild(roleDiv);
+                } else {
+                    resultItem.appendChild(nameDiv);
+                }
+                
+                resultItem.insertBefore(typeSpan, resultItem.firstChild);
+                
+                resultItem.addEventListener('click', () => {
+                    graph.highlightNode(node);
+                    searchResults.style.display = 'none';
+                    searchInput.blur();
+                });
+                
+                searchResults.appendChild(resultItem);
+            });
+        }
+
+        function hideSearchResults() {
+            setTimeout(() => {
+                searchResults.style.display = 'none';
+            }, 150);
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value;
+            clearSearchBtn.style.display = query ? 'block' : 'none';
+            
+            const results = graph.searchNodes(query);
+            showSearchResults(results);
+        });
+
+        searchInput.addEventListener('focus', () => {
+            if (searchInput.value && graph.searchResults.length > 0) {
+                searchResults.style.display = 'block';
+            }
+        });
+
+        searchInput.addEventListener('blur', hideSearchResults);
+
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            clearSearchBtn.style.display = 'none';
+            searchResults.style.display = 'none';
+            graph.clearSearch();
+            searchInput.focus();
+        });
+
+        // Handle escape key to clear search
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                clearSearchBtn.style.display = 'none';
+                searchResults.style.display = 'none';
+                graph.clearSearch();
+                searchInput.blur();
+            }
+        });
     </script>
 </body>
 </html>

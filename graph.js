@@ -30,15 +30,16 @@ class OrganizationGraph {
             employee: '#64b5f6',
             team: '#81c784'
             // Project colors are stored directly on project nodes
-        };
-        this.edgeColors = {
-            member: '#90a4ae',
+        };        this.edgeColors = {
+            member: '#81c784',
             mentor: '#ffb74d'
-        };
-
-        this.showProjects = true;
+        };        this.showProjects = true;
         this.showMentorships = true;
         this.showTeams = true;
+        
+        // Search functionality
+        this.highlightedNode = null;
+        this.searchResults = [];
         
         this.setupEventListeners();
         this.startAnimation();
@@ -147,38 +148,8 @@ class OrganizationGraph {
         this.camera.x = mousePos.x - worldPos.x * this.camera.zoom;
         this.camera.y = mousePos.y - worldPos.y * this.camera.zoom;
     }
-      loadData() {
-        // Sample organization data
-        const data = {
-            departments: [
-                { id: 'dept1', name: 'Bespoke', description: 'Custom development solutions' },
-                { id: 'dept2', name: 'OrderEazi', description: 'Order management platform' }
-            ],
-            projects: [
-                { id: 'proj1', name: 'Phoenix Initiative', description: 'Next-gen platform', department: 'dept1' },
-                { id: 'proj2', name: 'Orion Integration', description: 'Third-party API link', department: 'dept1' },
-                { id: 'proj3', name: 'Vega Analytics', description: 'Data dashboard', department: 'dept2' },
-                { id: 'proj4', name: 'Sirius Mobile', description: 'Mobile app development', department: 'dept2' }
-            ],
-            employees: [
-                { id: 'emp1', name: 'Alice Johnson', role: 'Senior Developer', team: 'team1', department: 'dept1', projects: ['proj1', 'proj2'] },
-                { id: 'emp2', name: 'Bob Smith', role: 'Product Manager', team: 'team1', department: 'dept1', projects: ['proj1'] },
-                { id: 'emp3', name: 'Carol Davis', role: 'Designer', team: 'team2', department: 'dept2', projects: ['proj3', 'proj4'] },
-                { id: 'emp4', name: 'David Wilson', role: 'Developer', team: 'team1', department: 'dept1', mentor: 'emp1', projects: ['proj2'] },
-                { id: 'emp5', name: 'Eve Brown', role: 'Developer', team: 'team2', department: 'dept2', projects: ['proj3'] },
-                { id: 'emp6', name: 'Frank Miller', role: 'Team Lead', team: 'team2', department: 'dept2', mentor: 'emp5', projects: ['proj4', 'proj3'] },
-                { id: 'emp7', name: 'Grace Lee', role: 'Junior Developer', team: 'team2', department: 'dept2', mentor: 'emp5', projects: ['proj4'] },
-                { id: 'emp8', name: 'Henry Taylor', role: 'QA Engineer', team: 'team3', department: 'dept1', projects: ['proj1'] },
-                { id: 'emp9', name: 'Ivy Chen', role: 'DevOps Engineer', team: 'team3', department: 'dept2', projects: [] },
-                { id: 'emp10', name: 'Jack Anderson', role: 'Intern', team: 'team1', department: 'dept1', mentor: 'emp1', projects: ['proj2'] }
-            ],
-            teams: [
-                { id: 'team1', name: 'Frontend Team', description: 'Responsible for user interface development', department: 'dept1' },
-                { id: 'team2', name: 'Backend Team', description: 'Handles server-side development', department: 'dept2' },
-                { id: 'team3', name: 'Infrastructure Team', description: 'Manages deployment and infrastructure', department: 'dept1' }
-            ]
-        };
-        
+      loadData(data) {
+
         this.createNodesAndEdges(data);
     }
       createNodesAndEdges(data) {
@@ -424,16 +395,28 @@ class OrganizationGraph {
             const source = visibleNodes.find(n => n.id === edge.source);
             const target = visibleNodes.find(n => n.id === edge.target);
             
-            if (source && target) {
-                const dx = target.x - source.x;
+            if (source && target) {                const dx = target.x - source.x;
                 const dy = target.y - source.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 const targetDistance = edge.type === 'mentor' ? 80 :
                                    edge.type === 'assignment' ? 110 :
-                                   120; // Default for member
+                                   240; // Default for member - doubled from 120
+                
+                // Different attraction strengths based on edge type
+                let edgeAttractionStrength = attractionStrength;
+                if (edge.type === 'assignment') {
+                    // Projects have full attraction strength
+                    edgeAttractionStrength = attractionStrength;
+                } else if (edge.type === 'member') {
+                    // Teams have half the attraction strength of projects
+                    edgeAttractionStrength = attractionStrength * 0.5;
+                } else if (edge.type === 'mentor') {
+                    // Keep mentor relationships at full strength
+                    edgeAttractionStrength = attractionStrength;
+                }
                 
                 if (distance > 0) {
-                    const force = (distance - targetDistance) * attractionStrength;
+                    const force = (distance - targetDistance) * edgeAttractionStrength;
                     const fx = (dx / distance) * force;
                     const fy = (dy / distance) * force;
                     
@@ -584,22 +567,34 @@ class OrganizationGraph {
             }
         });
         
-        this.ctx.globalAlpha = 1;
-          // ...existing nodes rendering code...
+        this.ctx.globalAlpha = 1;        // ...existing nodes rendering code...
         visibleNodes.forEach(node => {
             const isHovered = this.hoveredNode === node;
+            const isHighlighted = this.highlightedNode === node;
             
             let baseRadius = this.nodeRadius; // Fallback
             if (node.type === 'employee') baseRadius = this.employeeRadius;
             else if (node.type === 'team') baseRadius = this.teamRadius;
             else if (node.type === 'project') baseRadius = this.projectRadius;
             
-            const radius = baseRadius + (isHovered ? 5 : 0);
+            const radius = baseRadius + (isHovered ? 5 : 0) + (isHighlighted ? 8 : 0);
             
             // Node circle
             this.ctx.fillStyle = node.type === 'project' ? node.color : this.nodeColors[node.type];
-            this.ctx.strokeStyle = isHovered ? '#ffffff' : '#333333';
-            this.ctx.lineWidth = isHovered ? 3 : 2;
+            
+            // Special highlighting for search results
+            if (isHighlighted) {
+                this.ctx.strokeStyle = '#ffff00'; // Yellow highlight
+                this.ctx.lineWidth = 4;
+                // Add a pulsing effect
+                const pulseRadius = radius + Math.sin(Date.now() * 0.01) * 3;
+                this.ctx.beginPath();
+                this.ctx.arc(node.x, node.y, pulseRadius, 0, 2 * Math.PI);
+                this.ctx.stroke();
+            } else {
+                this.ctx.strokeStyle = isHovered ? '#ffffff' : '#333333';
+                this.ctx.lineWidth = isHovered ? 3 : 2;
+            }
             
             this.ctx.beginPath();
             this.ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
@@ -743,5 +738,67 @@ class OrganizationGraph {
         
         this.camera.x = this.canvas.width / 2 - centerX * this.camera.zoom;
         this.camera.y = this.canvas.height / 2 - centerY * this.camera.zoom;
+    }
+    
+    // Search functionality
+    searchNodes(query) {
+        if (!query || query.trim() === '') {
+            this.searchResults = [];
+            this.highlightedNode = null;
+            return [];
+        }
+        
+        const searchTerm = query.toLowerCase().trim();
+        this.searchResults = this.nodes.filter(node => {
+            const label = node.label.toLowerCase();
+            const type = node.type.toLowerCase();
+            const role = node.role ? node.role.toLowerCase() : '';
+            const description = node.description ? node.description.toLowerCase() : '';
+            
+            return label.includes(searchTerm) || 
+                   type.includes(searchTerm) || 
+                   role.includes(searchTerm) ||
+                   description.includes(searchTerm);
+        });
+        
+        return this.searchResults;
+    }
+    
+    highlightNode(node) {
+        this.highlightedNode = node;
+        this.focusOnNode(node);
+    }
+    
+    focusOnNode(node) {
+        if (!node) return;
+        
+        // Calculate the position to center the node on screen
+        const targetX = this.canvas.width / 2 - node.x * this.camera.zoom;
+        const targetY = this.canvas.height / 2 - node.y * this.camera.zoom;
+        
+        // Smoothly animate to the target position
+        const animateToTarget = () => {
+            const speed = 0.1;
+            const dx = targetX - this.camera.x;
+            const dy = targetY - this.camera.y;
+            
+            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+                this.camera.x = targetX;
+                this.camera.y = targetY;
+                return;
+            }
+            
+            this.camera.x += dx * speed;
+            this.camera.y += dy * speed;
+            
+            requestAnimationFrame(animateToTarget);
+        };
+        
+        animateToTarget();
+    }
+    
+    clearSearch() {
+        this.highlightedNode = null;
+        this.searchResults = [];
     }
 }
