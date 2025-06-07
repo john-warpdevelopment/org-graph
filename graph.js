@@ -10,13 +10,14 @@ class OrganizationGraph {
         // Graph data
         this.nodes = [];
         this.edges = [];
-        
-        // View controls
+          // View controls
         this.camera = { x: 0, y: 0, zoom: 1 };
         this.isDragging = false;
         this.dragTarget = null;
         this.lastMousePos = { x: 0, y: 0 };
         this.hoveredNode = null;
+        this.mouseDownPos = { x: 0, y: 0 }; // Track initial mouse position for click detection
+        this.dragThreshold = 5; // Pixels moved before considering it a drag
         
         // Physics simulation
         this.physicsEnabled = true;
@@ -36,10 +37,16 @@ class OrganizationGraph {
         };        this.showProjects = true;
         this.showMentorships = true;
         this.showTeams = true;
-        
-        // Search functionality
+          // Search functionality
         this.highlightedNode = null;
         this.searchResults = [];
+          // Selection functionality
+        this.selectedNode = null;
+        
+        // Mouse tracking for click vs drag detection
+        this.mouseDownPos = null;
+        this.dragThreshold = 5; // pixels
+        this.lastMousePos = null;
         
         this.setupEventListeners();
         this.startAnimation();
@@ -79,28 +86,40 @@ class OrganizationGraph {
             return Math.sqrt(dx * dx + dy * dy) < radius;
         });
     }
-    
-    onMouseDown(e) {
+      onMouseDown(e) {
         const mousePos = this.getMousePos(e);
         const node = this.getNodeAt(mousePos);
         
+        this.mouseDownPos = { x: e.clientX, y: e.clientY };
+        
         if (node) {
             this.dragTarget = node;
-            this.isDragging = true;
+            this.isDragging = false; // Don't set to true immediately, wait for movement
             node.fixed = true;
         } else {
-            this.isDragging = true;
+            this.isDragging = false;
             this.dragTarget = null;
+            // Clear selection when clicking empty space
+            this.selectNode(null);
         }
         
         this.lastMousePos = { x: e.clientX, y: e.clientY };
-    }
-    
-    onMouseMove(e) {
+    }    onMouseMove(e) {
+        const dx = e.clientX - this.lastMousePos.x;
+        const dy = e.clientY - this.lastMousePos.y;
+        
+        // Check if we've moved enough to start dragging
+        if (!this.isDragging && this.mouseDownPos) {
+            const totalMovement = Math.sqrt(
+                Math.pow(e.clientX - this.mouseDownPos.x, 2) + 
+                Math.pow(e.clientY - this.mouseDownPos.y, 2)
+            );
+            if (totalMovement > this.dragThreshold) {
+                this.isDragging = true;
+            }
+        }
+        
         if (this.isDragging) {
-            const dx = e.clientX - this.lastMousePos.x;
-            const dy = e.clientY - this.lastMousePos.y;
-            
             if (this.dragTarget) {
                 // Move node
                 this.dragTarget.x += dx / this.camera.zoom;
@@ -117,14 +136,20 @@ class OrganizationGraph {
         }
         
         this.lastMousePos = { x: e.clientX, y: e.clientY };
-    }
-    
-    onMouseUp(e) {
+    }    onMouseUp(e) {
+        // Check if this was a click (not a drag)
+        if (!this.isDragging && this.dragTarget) {
+            this.selectNode(this.dragTarget);
+        }
+        
         if (this.dragTarget) {
             this.dragTarget.fixed = false;
         }
+        
+        // Reset all mouse tracking state
         this.isDragging = false;
         this.dragTarget = null;
+        this.mouseDownPos = null;
     }
     
     onWheel(e) {
@@ -571,28 +596,38 @@ class OrganizationGraph {
             }
         });
         
-        this.ctx.globalAlpha = 1;        // ...existing nodes rendering code...
-        visibleNodes.forEach(node => {
+        
+        visibleNodes.forEach(node=> {
+            this.ctx.globalAlpha = 1;        // ...existing nodes rendering code...        visibleNodes.forEach(node => {
             const isHovered = this.hoveredNode === node;
             const isHighlighted = this.highlightedNode === node;
+            const isSelected = this.selectedNode === node;
             
             let baseRadius = this.nodeRadius; // Fallback
             if (node.type === 'employee') baseRadius = this.employeeRadius;
             else if (node.type === 'team') baseRadius = this.teamRadius;
             else if (node.type === 'project') baseRadius = this.projectRadius;
             
-            const radius = baseRadius + (isHovered ? 5 : 0) + (isHighlighted ? 8 : 0);
+            const radius = baseRadius + (isHovered ? 5 : 0) + (isHighlighted ? 8 : 0) + (isSelected ? 6 : 0);
             
             // Node circle
             this.ctx.fillStyle = node.type === 'project' ? node.color : this.nodeColors[node.type];
-              // Special highlighting for search results
+            
+            // Special highlighting for search results
             if (isHighlighted) {
-                this.ctx.strokeStyle = 'rgba(255, 255, 100, 0.5)'; // Half transparent yellow highlight
+                this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)'; // Half transparent yellow highlight
                 this.ctx.lineWidth = 4;
                 // Add a pulsing effect
                 const pulseRadius = radius + Math.sin(Date.now() * 0.01) * 3;
                 this.ctx.beginPath();
                 this.ctx.arc(node.x, node.y, pulseRadius, 0, 2 * Math.PI);
+                this.ctx.stroke();
+            } else if (isSelected) {
+                // Blue selection indicator
+                this.ctx.strokeStyle = 'rgba(150, 150, 255, 0.2)';
+                this.ctx.lineWidth = 4;
+                this.ctx.beginPath();
+                this.ctx.arc(node.x, node.y, radius + 3, 0, 2 * Math.PI);
                 this.ctx.stroke();
             } else {
                 this.ctx.strokeStyle = isHovered ? '#ffffff' : '#333333';
@@ -801,5 +836,38 @@ class OrganizationGraph {
     clearSearch() {
         this.highlightedNode = null;
         this.searchResults = [];
+    }
+    
+    // Selection functionality
+    selectNode(node) {
+        this.selectedNode = node;
+        this.updateEditButton();
+    }
+    
+    updateEditButton() {
+        const editBtn = document.getElementById('edit-selected-btn');
+        if (this.selectedNode) {
+            editBtn.style.display = 'block';
+            editBtn.textContent = `Edit ${this.selectedNode.type}: ${this.selectedNode.label}`;
+        } else {
+            editBtn.style.display = 'none';
+        }
+    }
+    
+    openSelectedNode() {
+        if (!this.selectedNode) return;
+
+        const baseUrl = this.baseUrls[this.selectedNode.type];
+        if (baseUrl) {
+            const url = `${baseUrl}${this.selectedNode.id}`;
+            window.open(url, '_blank');
+        } else {
+            console.warn(`No base URL configured for node type: ${this.selectedNode.type}`);
+        }
+    }
+    
+    // Method to update base URLs from external configuration
+    setBaseUrls(urls) {
+        this.baseUrls = { ...this.baseUrls, ...urls };
     }
 }
