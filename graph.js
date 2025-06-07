@@ -21,7 +21,7 @@ class OrganizationGraph {
 
     // Physics simulation
     this.physicsEnabled = true;
-    this.animationId = null;    // Visual settings
+    this.animationId = null; // Visual settings
     this.nodeRadius = 25; // Default, used if no specific type matches
     this.employeeRadius = 12.5; // Half the default size
     this.projectRadius = 22; // Custom size for projects
@@ -119,9 +119,9 @@ class OrganizationGraph {
     this.lastMousePos = { x: e.clientX, y: e.clientY };
   }
   onMouseMove(e) {
-    if(!this.lastMousePos){
-        e.preventDefault();
-        return;
+    if (!this.lastMousePos) {
+      e.preventDefault();
+      return;
     }
     const dx = e.clientX - this.lastMousePos.x;
     const dy = e.clientY - this.lastMousePos.y;
@@ -287,7 +287,7 @@ class OrganizationGraph {
         vy: 0,
         fixed: false,
       });
-    });    // Create employee nodes within departments
+    }); // Create employee nodes within departments
     data.employees.forEach((employee, index) => {
       const dept = this.departments.find((d) => d.id === employee.department);
       if (!dept) {
@@ -619,7 +619,7 @@ class OrganizationGraph {
         baseRadius +
         (isHovered ? 5 : 0) +
         (isHighlighted ? 8 : 0) +
-        (isSelected ? 6 : 0);      // Node circle - determine color based on node type and team owner status
+        (isSelected ? 6 : 0); // Node circle - determine color based on node type and team owner status
       if (node.type === "employee" && node.isTeamOwner) {
         this.ctx.fillStyle = this.nodeColors.teamOwner;
       } else {
@@ -674,7 +674,7 @@ class OrganizationGraph {
         }
       } else {
         this.ctx.fillText(node.label, node.x, node.y);
-      }      // Show additional info on hover
+      } // Show additional info on hover
       if (isHovered) {
         let info;
         if (node.type === "employee") {
@@ -683,14 +683,17 @@ class OrganizationGraph {
             info += " (Team Owner)";
           }
         } else if (node.type === "project") {
-          info = node.description;        } else if (node.type === "team") {
+          info = node.description;
+        } else if (node.type === "team") {
           // Show team description, employee count, and owner
           const employeeCount = node.employeeCount || 0;
           let ownerInfo = "";
           if (this.data && this.data.teams) {
-            const teamData = this.data.teams.find(t => t.id === node.id);
+            const teamData = this.data.teams.find((t) => t.id === node.id);
             if (teamData && teamData.owner && this.data.employees) {
-              const ownerEmployee = this.data.employees.find(emp => emp.id === teamData.owner);
+              const ownerEmployee = this.data.employees.find(
+                (emp) => emp.id === teamData.owner
+              );
               if (ownerEmployee) {
                 ownerInfo = `\nOwner: ${ownerEmployee.name}`;
               }
@@ -699,7 +702,7 @@ class OrganizationGraph {
           info = `${node.description}\n${employeeCount} employee${
             employeeCount !== 1 ? "s" : ""
           }${ownerInfo}`;
-        }else {
+        } else {
           info = node.description;
         }
 
@@ -841,9 +844,9 @@ class OrganizationGraph {
 
     return this.searchResults;
   }
-
   highlightNode(node) {
     this.highlightedNode = node;
+    this.selectNode(node); // Also select the node so edit button appears
     this.focusOnNode(node);
   }
 
