@@ -156,20 +156,24 @@ class OrganizationGraph {
         this.nodes = [];
         this.edges = [];
         this.departments = [];
-        const projectColor = '#9370DB'; // Medium Purple for all projects
-
-        // Create department containers
+        const projectColor = '#9370DB'; // Medium Purple for all projects 
+        const verticalSpacing = 10;
+        const containerHeight = 800;
+        const containerWidth = 1000;     
+        //Create department containers
         data.departments.forEach((dept, index) => {
-            const x = (index - 0.5) * 1005; // Reduced spacing: 1000px width + 5px gap
-            const y = 0;
+            const column = index % 2; // 0 for left, 1 for right
+            const row = Math.floor(index / 2); // 0 for first row, 1 for second row, etc.
+            const x = (column - 0.5) * (containerWidth+10); // Position: left at -502.5, right at 502.5
+            const y = row * (verticalSpacing+containerHeight); // Vertical spacing: 850px between rows
             this.departments.push({
                 id: dept.id,
                 name: dept.name,
                 description: dept.description,
                 x: x,
                 y: y,
-                width: 1000, 
-                height: 800
+                width: containerWidth, 
+                height: containerHeight
             });
         });
         
@@ -581,10 +585,9 @@ class OrganizationGraph {
             
             // Node circle
             this.ctx.fillStyle = node.type === 'project' ? node.color : this.nodeColors[node.type];
-            
-            // Special highlighting for search results
+              // Special highlighting for search results
             if (isHighlighted) {
-                this.ctx.strokeStyle = '#ffff00'; // Yellow highlight
+                this.ctx.strokeStyle = 'rgba(255, 255, 100, 0.5)'; // Half transparent yellow highlight
                 this.ctx.lineWidth = 4;
                 // Add a pulsing effect
                 const pulseRadius = radius + Math.sin(Date.now() * 0.01) * 3;
@@ -636,17 +639,15 @@ class OrganizationGraph {
                     const padding = 8;
                     const boxWidth = Math.max(...lines.map(line => this.ctx.measureText(line).width)) + padding * 2;
                     const boxHeight = lines.length * lineHeight + padding * 2;
-                    
-                    // Tooltip background
-                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                      // Tooltip background
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                     this.ctx.fillRect(
                         node.x - boxWidth / 2,
-                        node.y - radius - boxHeight - 10,
+                        node.y - radius - boxHeight - 5,
                         boxWidth,
                         boxHeight
                     );
-                    
-                    // Tooltip text
+                      // Tooltip text
                     this.ctx.fillStyle = '#ffffff';
                     this.ctx.font = '11px "Segoe UI"';
                     lines.forEach((line, index) => {
