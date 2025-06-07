@@ -33,9 +33,7 @@ class OrganizationGraph {
             // Project colors are stored directly on project nodes
         };        this.edgeColors = {
             member: '#81c784',
-            mentor: '#ffb74d'
         };        this.showProjects = true;
-        this.showMentorships = true;
         this.showTeams = true;
           // Search functionality
         this.highlightedNode = null;
@@ -264,7 +262,6 @@ class OrganizationGraph {
                 role: employee.role,
                 team: employee.team,
                 department: employee.department,
-                mentor: employee.mentor,
                 x: dept.x + Math.cos(angle) * radius,
                 y: dept.y + Math.sin(angle) * radius,
                 vx: 0,
@@ -280,17 +277,6 @@ class OrganizationGraph {
                 target: employee.team,
                 type: 'member'
             });
-        });
-        
-        // Create mentor relationship edges
-        data.employees.forEach(employee => {
-            if (employee.mentor) {
-                this.edges.push({
-                    source: employee.mentor,
-                    target: employee.id,
-                    type: 'mentor'
-                });
-            }
         });
 
         // Create project assignment edges
@@ -321,22 +307,17 @@ class OrganizationGraph {
         return this.nodes.filter(node => {
             if (node.type === 'project' && !this.showProjects) return false;
             if (node.type === 'team' && !this.showTeams) return false;
-            // If a team is hidden, also hide its members if they aren't part of another visible entity (e.g. project, mentorship)
+            // If a team is hidden, also hide its members if they aren't part of another visible entity (e.g. project)
             if (node.type === 'employee' && !this.showTeams) {
                 const team = this.nodes.find(t => t.id === node.team && t.type === 'team');
                 if (team && !this.showTeams) {
-                    // Check if employee is involved in a visible project or mentorship
+                    // Check if employee is involved in a visible project
                     const involvedInVisibleProject = this.showProjects && this.edges.some(edge => 
                         edge.type === 'assignment' && 
                         (edge.source === node.id || edge.target === node.id) && 
                         this.nodes.find(n => (n.id === edge.source || n.id === edge.target) && n.type === 'project' && this.showProjects)
                     );
-                    const involvedInVisibleMentorship = this.showMentorships && this.edges.some(edge => 
-                        edge.type === 'mentor' && 
-                        (edge.source === node.id || edge.target === node.id) && 
-                        this.nodes.find(n => (n.id === edge.source || n.id === edge.target) && n.type === 'employee' && this.showMentorships) 
-                    );
-                    if (!involvedInVisibleProject && !involvedInVisibleMentorship) return false;
+                    if (!involvedInVisibleProject ) return false;
                 }
             }
             return true;
@@ -346,7 +327,6 @@ class OrganizationGraph {
     getVisibleEdges() {
         return this.edges.filter(edge => {
             if (edge.type === 'assignment' && !this.showProjects) return false;
-            if (edge.type === 'mentor' && !this.showMentorships) return false;
             if (edge.type === 'member' && !this.showTeams) return false;
 
             // Ensure both source and target nodes of an edge are visible
@@ -427,9 +407,7 @@ class OrganizationGraph {
             if (source && target) {                const dx = target.x - source.x;
                 const dy = target.y - source.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                const targetDistance = edge.type === 'mentor' ? 80 :
-                                   edge.type === 'assignment' ? 110 :
-                                   240; // Default for member - doubled from 120
+                const targetDistance = edge.type === 'assignment' ? 110 : 240; 
                 
                 // Different attraction strengths based on edge type
                 let edgeAttractionStrength = attractionStrength;
@@ -439,10 +417,7 @@ class OrganizationGraph {
                 } else if (edge.type === 'member') {
                     // Teams have half the attraction strength of projects
                     edgeAttractionStrength = attractionStrength * 0.5;
-                } else if (edge.type === 'mentor') {
-                    // Keep mentor relationships at full strength
-                    edgeAttractionStrength = attractionStrength;
-                }
+                } 
                 
                 if (distance > 0) {
                     const force = (distance - targetDistance) * edgeAttractionStrength;
@@ -560,39 +535,13 @@ class OrganizationGraph {
             
             if (source && target) {
                 this.ctx.strokeStyle = edge.type === 'assignment' ? edge.color : this.edgeColors[edge.type];
-                this.ctx.lineWidth = edge.type === 'assignment' ? 2 : (edge.type === 'mentor' ? 3 : 2);
-                this.ctx.globalAlpha = edge.type === 'assignment' ? 0.7 : (edge.type === 'mentor' ? 0.8 : 0.6);
+                this.ctx.lineWidth = 2;
+                this.ctx.globalAlpha = edge.type === 'assignment' ? 0.7 : 0.6;
                 
                 this.ctx.beginPath();
                 this.ctx.moveTo(source.x, source.y);
                 this.ctx.lineTo(target.x, target.y);
                 this.ctx.stroke();
-                
-                // Draw arrow for mentor relationships
-                if (edge.type === 'mentor') {
-                    const dx = target.x - source.x;
-                    const dy = target.y - source.y;
-                    const length = Math.sqrt(dx * dx + dy * dy);
-                    const arrowLength = 15;
-                    const arrowAngle = Math.PI / 6;
-                      const endX = target.x - (dx / length) * (target.type === 'employee' ? this.employeeRadius : this.teamRadius);
-                    const endY = target.y - (dy / length) * (target.type === 'employee' ? this.employeeRadius : this.teamRadius);
-                    
-                    const angle = Math.atan2(dy, dx);
-                    
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(endX, endY);
-                    this.ctx.lineTo(
-                        endX - arrowLength * Math.cos(angle - arrowAngle),
-                        endY - arrowLength * Math.sin(angle - arrowAngle)
-                    );
-                    this.ctx.moveTo(endX, endY);
-                    this.ctx.lineTo(
-                        endX - arrowLength * Math.cos(angle + arrowAngle),
-                        endY - arrowLength * Math.sin(angle + arrowAngle)
-                    );
-                    this.ctx.stroke();
-                }
             }
         });
         
@@ -663,10 +612,10 @@ class OrganizationGraph {
             // Show additional info on hover
             if (isHovered) {
                 const info = node.type === 'employee' 
-                    ? `${node.role}${node.mentor ? '\nMentor: ' + this.nodes.find(n => n.id === node.mentor)?.label : ''}`
+                    ? `${node.role}`
                     : node.type === 'project' 
-                    ? node.description // Projects show their description on hover
-                    : node.description; // Teams also show their description
+                    ? node.description 
+                    : node.description; 
                 
                 if (info) {
                     const lines = info.split('\n');
@@ -726,12 +675,6 @@ class OrganizationGraph {
         this.showProjects = !this.showProjects;
         const btn = document.getElementById('toggle-projects-btn');
         btn.textContent = this.showProjects ? 'Hide Projects' : 'Show Projects';
-    }
-
-    toggleMentorshipsVisibility() {
-        this.showMentorships = !this.showMentorships;
-        const btn = document.getElementById('toggle-mentorships-btn');
-        btn.textContent = this.showMentorships ? 'Hide Mentorships' : 'Show Mentorships';
     }
 
     toggleTeamsVisibility() {

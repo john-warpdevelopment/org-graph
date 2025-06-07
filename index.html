@@ -239,7 +239,6 @@
             </div>            <div class="control-group">
                 <label>Toggle Visibility</label>
                 <button id="toggle-projects-btn">Hide Projects</button>
-                <button id="toggle-mentorships-btn">Hide Mentorships</button>
                 <button id="toggle-teams-btn">Hide Teams</button>
             </div>
             <div class="control-group">
@@ -258,9 +257,6 @@
                 <span class="legend-color" style="background-color: #9370DB;"></span> Project
             </div>            <div class="legend-item">
                 <span class="legend-line" style="background-color: #81c784;"></span> Team Member
-            </div>
-            <div class="legend-item">
-                <span class="legend-line" style="background-color: #ffb74d; height: 3px;"></span> Mentor Relationship
             </div>
             <div class="legend-item">
                 <span class="legend-line" style="background-color: #9370DB; height: 2px; opacity: 0.7;"></span> Project Assignment
@@ -293,13 +289,13 @@
                 { id: 'emp1', name: 'Alice Johnson', role: 'Senior Developer', team: 'team1', department: 'dept1', projects: ['proj1', 'proj2'] },
                 { id: 'emp2', name: 'Bob Smith', role: 'Product Manager', team: 'team1', department: 'dept1', projects: ['proj1'] },
                 { id: 'emp3', name: 'Carol Davis', role: 'Designer', team: 'team2', department: 'dept2', projects: ['proj3', 'proj4'] },
-                { id: 'emp4', name: 'David Wilson', role: 'Developer', team: 'team1', department: 'dept1', mentor: 'emp1', projects: ['proj2'] },
+                { id: 'emp4', name: 'David Wilson', role: 'Developer', team: 'team1', department: 'dept1', projects: ['proj2'] },
                 { id: 'emp5', name: 'Eve Brown', role: 'Developer', team: 'team2', department: 'dept2', projects: ['proj3'] },
-                { id: 'emp6', name: 'Frank Miller', role: 'Team Lead', team: 'team2', department: 'dept2', mentor: 'emp5', projects: ['proj4', 'proj3'] },
-                { id: 'emp7', name: 'Grace Lee', role: 'Junior Developer', team: 'team2', department: 'dept2', mentor: 'emp5', projects: ['proj4'] },
+                { id: 'emp6', name: 'Frank Miller', role: 'Team Lead', team: 'team2', department: 'dept2', projects: ['proj4', 'proj3'] },
+                { id: 'emp7', name: 'Grace Lee', role: 'Junior Developer', team: 'team2', department: 'dept2',  projects: ['proj4'] },
                 { id: 'emp8', name: 'Henry Taylor', role: 'QA Engineer', team: 'team3', department: 'dept1', projects: ['proj1'] },
                 { id: 'emp9', name: 'Ivy Chen', role: 'DevOps Engineer', team: 'team3', department: 'dept2', projects: [] },
-                { id: 'emp10', name: 'Jack Anderson', role: 'Intern', team: 'team1', department: 'dept1', mentor: 'emp1', projects: ['proj2'] }
+                { id: 'emp10', name: 'Jack Anderson', role: 'Intern', team: 'team1', department: 'dept1', projects: ['proj2'] }
             ],
             teams: [
                 { id: 'team1', name: 'Frontend Team', description: 'Responsible for user interface development', department: 'dept1' },
@@ -316,7 +312,6 @@
         document.getElementById('physics-btn').addEventListener('click', () => graph.togglePhysics());
         document.getElementById('reset-view-btn').addEventListener('click', () => graph.resetView());
         document.getElementById('toggle-projects-btn').addEventListener('click', () => graph.toggleProjectsVisibility());
-        document.getElementById('toggle-mentorships-btn').addEventListener('click', () => graph.toggleMentorshipsVisibility());
         document.getElementById('toggle-teams-btn').addEventListener('click', () => graph.toggleTeamsVisibility());
         document.getElementById('edit-selected-btn').addEventListener('click', () => graph.openSelectedNode());
 
