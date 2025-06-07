@@ -30,23 +30,32 @@ class OrganizationGraph {
     this.nodeColors = {
       employee: "#64b5f6",
       team: "#81c784",
-      // Project colors are stored directly on project nodes
-    };
+      project:  "#9370DB"
+    };    
     this.edgeColors = {
       member: "#81c784",
+      mentor: "#ffb74d",
+      assignment:  "#9370DB"
     };
     this.showProjects = true;
+    this.showMentorships = true;
     this.showTeams = true;
     // Search functionality
     this.highlightedNode = null;
-    this.searchResults = [];
-    // Selection functionality
+    this.searchResults = [];    // Selection functionality
     this.selectedNode = null;
 
     // Mouse tracking for click vs drag detection
     this.mouseDownPos = null;
     this.dragThreshold = 5; // pixels
     this.lastMousePos = null;
+
+    // External URL configuration for opening nodes in new tabs
+    this.baseUrls = {
+      employee: 'https://your-hr-system.com/employee/',
+      team: 'https://your-team-system.com/team/',
+      project: 'https://your-project-system.com/project/'
+    };
 
     this.setupEventListeners();
     this.startAnimation();
@@ -74,17 +83,21 @@ class OrganizationGraph {
       x: (e.clientX - rect.left - this.camera.x) / this.camera.zoom,
       y: (e.clientY - rect.top - this.camera.y) / this.camera.zoom,
     };
-  }
-  getNodeAt(pos) {
+  }  getNodeAt(pos) {
     return this.nodes.find((node) => {
       const dx = node.x - pos.x;
       const dy = node.y - pos.y;
-      let radius = this.nodeRadius; // Fallback
-      if (node.type === "employee") radius = this.employeeRadius;
-      else if (node.type === "team") radius = this.teamRadius;
-      else if (node.type === "project") radius = this.projectRadius;
+      const radius = this.getNodeRadius(node);
       return Math.sqrt(dx * dx + dy * dy) < radius;
     });
+  }
+  
+  // Helper method to get the radius for any node
+  getNodeRadius(node) {
+    if (node.type === "employee") return this.employeeRadius;
+    else if (node.type === "team") return node.radius || this.teamRadius; // Use stored radius or fallback
+    else if (node.type === "project") return this.projectRadius;
+    return this.nodeRadius; // Default fallback
   }
   onMouseDown(e) {
     const mousePos = this.getMousePos(e);
@@ -177,15 +190,22 @@ class OrganizationGraph {
   }
   loadData(data) {
     this.createNodesAndEdges(data);
-  }
-  createNodesAndEdges(data) {
+  }  createNodesAndEdges(data) {
     this.nodes = [];
     this.edges = [];
     this.departments = [];
-    const projectColor = "#9370DB"; // Medium Purple for all projects
     const verticalSpacing = 10;
     const containerHeight = 800;
     const containerWidth = 1000;
+    
+    // Calculate team sizes (number of employees per team)
+    const teamSizes = {};
+    data.employees.forEach((employee) => {
+      if (employee.team) {
+        teamSizes[employee.team] = (teamSizes[employee.team] || 0) + 1;
+      }
+    });
+    
     //Create department containers
     data.departments.forEach((dept, index) => {
       const column = index % 2; // 0 for left, 1 for right
@@ -220,19 +240,21 @@ class OrganizationGraph {
         type: "project",
         description: project.description,
         department: project.department,
-        color: projectColor, // Use the common project color
         x: dept.x + Math.cos(projectAngle) * projectRadiusOffset,
         y: dept.y + Math.sin(projectAngle) * projectRadiusOffset + 50, // Offset Y to avoid overlap with teams
         vx: 0,
         vy: 0,
         fixed: false,
       });
-    });
-
+    });    
     // Create team nodes within departments
     data.teams.forEach((team, index) => {
       const dept = this.departments.find((d) => d.id === team.department);
       const teamAngle = (index % 3) * ((2 * Math.PI) / 3);
+      const radiusPerEmployee = 12;
+      const minTeamRadius = 25;
+      const employeeCount = teamSizes[team.id] || 0;
+      const teamRadius = Math.max(minTeamRadius, employeeCount * radiusPerEmployee);
 
       this.nodes.push({
         id: team.id,
@@ -240,6 +262,8 @@ class OrganizationGraph {
         type: "team",
         description: team.description,
         department: team.department,
+        radius: teamRadius, // Store calculated radius on the node
+        employeeCount: employeeCount, // Store employee count for reference
         x: dept.x + Math.cos(teamAngle) * 100,
         y: dept.y + Math.sin(teamAngle) * 100,
         vx: 0,
@@ -297,7 +321,6 @@ class OrganizationGraph {
               source: employee.id,
               target: projectId,
               type: "assignment",
-              color: projectColor, // Use the common project color for edges
             });
           } else {
             if (!projectNode)
@@ -480,15 +503,11 @@ class OrganizationGraph {
         }
 
         node.x += node.vx;
-        node.y += node.vy;
-        // Constrain nodes within their department boundaries
+        node.y += node.vy;        // Constrain nodes within their department boundaries
         if (node.department && this.departments) {
           const dept = this.departments.find((d) => d.id === node.department);
           if (dept) {
-            let nodeRadius = this.nodeRadius; // Fallback
-            if (node.type === "employee") nodeRadius = this.employeeRadius;
-            else if (node.type === "team") nodeRadius = this.teamRadius;
-            else if (node.type === "project") nodeRadius = this.projectRadius;
+            const nodeRadius = this.getNodeRadius(node);
 
             const margin = nodeRadius + 10;
             const minX = dept.x - dept.width / 2 + margin;
@@ -532,7 +551,6 @@ class OrganizationGraph {
       this.departments.forEach((dept) => {
         // Department box
         this.ctx.strokeStyle = "#888888"; // Grey border
-        // this.ctx.fillStyle = dept.color + '15'; // Removed background fill
         this.ctx.lineWidth = 2; // Standard line width
 
         const x = dept.x - dept.width / 2;
@@ -561,8 +579,7 @@ class OrganizationGraph {
       const target = visibleNodes.find((n) => n.id === edge.target);
 
       if (source && target) {
-        this.ctx.strokeStyle =
-          edge.type === "assignment" ? edge.color : this.edgeColors[edge.type];
+        this.ctx.strokeStyle = this.edgeColors[edge.type];
         this.ctx.lineWidth = 2;
         this.ctx.globalAlpha = edge.type === "assignment" ? 0.7 : 0.6;
 
@@ -571,18 +588,14 @@ class OrganizationGraph {
         this.ctx.lineTo(target.x, target.y);
         this.ctx.stroke();
       }
-    });
-
-    visibleNodes.forEach((node) => {
-      this.ctx.globalAlpha = 1; // ...existing nodes rendering code...        visibleNodes.forEach(node => {
+    });    visibleNodes.forEach((node) => {
+      this.ctx.globalAlpha = 1;
+      
       const isHovered = this.hoveredNode === node;
       const isHighlighted = this.highlightedNode === node;
       const isSelected = this.selectedNode === node;
 
-      let baseRadius = this.nodeRadius; // Fallback
-      if (node.type === "employee") baseRadius = this.employeeRadius;
-      else if (node.type === "team") baseRadius = this.teamRadius;
-      else if (node.type === "project") baseRadius = this.projectRadius;
+      const baseRadius = this.getNodeRadius(node);
 
       const radius =
         baseRadius +
@@ -591,8 +604,7 @@ class OrganizationGraph {
         (isSelected ? 6 : 0);
 
       // Node circle
-      this.ctx.fillStyle =
-        node.type === "project" ? node.color : this.nodeColors[node.type];
+      this.ctx.fillStyle = this.nodeColors[node.type];
 
       // Special highlighting for search results
       if (isHighlighted) {
@@ -642,16 +654,20 @@ class OrganizationGraph {
         }
       } else {
         this.ctx.fillText(node.label, node.x, node.y);
-      }
-
-      // Show additional info on hover
+      }      // Show additional info on hover
       if (isHovered) {
-        const info =
-          node.type === "employee"
-            ? `${node.role}`
-            : node.type === "project"
-            ? node.description
-            : node.description;
+        let info;
+        if (node.type === "employee") {
+          info = node.role;
+        } else if (node.type === "project") {
+          info = node.description;
+        } else if (node.type === "team") {
+          // Show team description and employee count
+          const employeeCount = node.employeeCount || 0;
+          info = `${node.description}\n${employeeCount} employee${employeeCount !== 1 ? 's' : ''}`;
+        } else {
+          info = node.description;
+        }
 
         if (info) {
           const lines = info.split("\n");
