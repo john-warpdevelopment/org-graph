@@ -25,24 +25,24 @@ class OrganizationGraph {
     // Visual settings
     this.nodeRadius = 25; // Default, used if no specific type matches
     this.employeeRadius = 12.5; // Half the default size
-    this.teamRadius = 50; // Double the default size
     this.projectRadius = 22; // Custom size for projects
+    //team radius is dynamic based on number of employees
     this.nodeColors = {
       employee: "#64b5f6",
       team: "#81c784",
-      project:  "#9370DB"
-    };    
+      project: "#9370DB",
+    };
     this.edgeColors = {
       member: "#81c784",
       mentor: "#ffb74d",
-      assignment:  "#9370DB"
+      assignment: "#9370DB",
     };
     this.showProjects = true;
     this.showMentorships = true;
     this.showTeams = true;
     // Search functionality
     this.highlightedNode = null;
-    this.searchResults = [];    // Selection functionality
+    this.searchResults = []; // Selection functionality
     this.selectedNode = null;
 
     // Mouse tracking for click vs drag detection
@@ -52,9 +52,9 @@ class OrganizationGraph {
 
     // External URL configuration for opening nodes in new tabs
     this.baseUrls = {
-      employee: 'https://your-hr-system.com/employee/',
-      team: 'https://your-team-system.com/team/',
-      project: 'https://your-project-system.com/project/'
+      employee: "https://your-hr-system.com/employee/",
+      team: "https://your-team-system.com/team/",
+      project: "https://your-project-system.com/project/",
     };
 
     this.setupEventListeners();
@@ -83,7 +83,8 @@ class OrganizationGraph {
       x: (e.clientX - rect.left - this.camera.x) / this.camera.zoom,
       y: (e.clientY - rect.top - this.camera.y) / this.camera.zoom,
     };
-  }  getNodeAt(pos) {
+  }
+  getNodeAt(pos) {
     return this.nodes.find((node) => {
       const dx = node.x - pos.x;
       const dy = node.y - pos.y;
@@ -91,11 +92,11 @@ class OrganizationGraph {
       return Math.sqrt(dx * dx + dy * dy) < radius;
     });
   }
-  
+
   // Helper method to get the radius for any node
   getNodeRadius(node) {
     if (node.type === "employee") return this.employeeRadius;
-    else if (node.type === "team") return node.radius || this.teamRadius; // Use stored radius or fallback
+    else if (node.type === "team") return node.radius;
     else if (node.type === "project") return this.projectRadius;
     return this.nodeRadius; // Default fallback
   }
@@ -188,16 +189,19 @@ class OrganizationGraph {
     this.camera.x = mousePos.x - worldPos.x * this.camera.zoom;
     this.camera.y = mousePos.y - worldPos.y * this.camera.zoom;
   }
+
   loadData(data) {
     this.createNodesAndEdges(data);
-  }  createNodesAndEdges(data) {
+  }
+
+  createNodesAndEdges(data) {
     this.nodes = [];
     this.edges = [];
     this.departments = [];
     const verticalSpacing = 10;
     const containerHeight = 800;
     const containerWidth = 1000;
-    
+
     // Calculate team sizes (number of employees per team)
     const teamSizes = {};
     data.employees.forEach((employee) => {
@@ -205,7 +209,7 @@ class OrganizationGraph {
         teamSizes[employee.team] = (teamSizes[employee.team] || 0) + 1;
       }
     });
-    
+
     //Create department containers
     data.departments.forEach((dept, index) => {
       const column = index % 2; // 0 for left, 1 for right
@@ -246,7 +250,7 @@ class OrganizationGraph {
         vy: 0,
         fixed: false,
       });
-    });    
+    });
     // Create team nodes within departments
     data.teams.forEach((team, index) => {
       const dept = this.departments.find((d) => d.id === team.department);
@@ -254,7 +258,10 @@ class OrganizationGraph {
       const radiusPerEmployee = 12;
       const minTeamRadius = 25;
       const employeeCount = teamSizes[team.id] || 0;
-      const teamRadius = Math.max(minTeamRadius, employeeCount * radiusPerEmployee);
+      const teamRadius = Math.max(
+        minTeamRadius,
+        employeeCount * radiusPerEmployee
+      );
 
       this.nodes.push({
         id: team.id,
@@ -262,7 +269,7 @@ class OrganizationGraph {
         type: "team",
         description: team.description,
         department: team.department,
-        radius: teamRadius, // Store calculated radius on the node
+        radius: teamRadius,
         employeeCount: employeeCount, // Store employee count for reference
         x: dept.x + Math.cos(teamAngle) * 100,
         y: dept.y + Math.sin(teamAngle) * 100,
@@ -503,7 +510,7 @@ class OrganizationGraph {
         }
 
         node.x += node.vx;
-        node.y += node.vy;        // Constrain nodes within their department boundaries
+        node.y += node.vy; // Constrain nodes within their department boundaries
         if (node.department && this.departments) {
           const dept = this.departments.find((d) => d.id === node.department);
           if (dept) {
@@ -536,6 +543,7 @@ class OrganizationGraph {
       }
     });
   }
+  
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -588,9 +596,10 @@ class OrganizationGraph {
         this.ctx.lineTo(target.x, target.y);
         this.ctx.stroke();
       }
-    });    visibleNodes.forEach((node) => {
+    });
+    visibleNodes.forEach((node) => {
       this.ctx.globalAlpha = 1;
-      
+
       const isHovered = this.hoveredNode === node;
       const isHighlighted = this.highlightedNode === node;
       const isSelected = this.selectedNode === node;
@@ -654,7 +663,7 @@ class OrganizationGraph {
         }
       } else {
         this.ctx.fillText(node.label, node.x, node.y);
-      }      // Show additional info on hover
+      } // Show additional info on hover
       if (isHovered) {
         let info;
         if (node.type === "employee") {
@@ -664,7 +673,9 @@ class OrganizationGraph {
         } else if (node.type === "team") {
           // Show team description and employee count
           const employeeCount = node.employeeCount || 0;
-          info = `${node.description}\n${employeeCount} employee${employeeCount !== 1 ? 's' : ''}`;
+          info = `${node.description}\n${employeeCount} employee${
+            employeeCount !== 1 ? "s" : ""
+          }`;
         } else {
           info = node.description;
         }
