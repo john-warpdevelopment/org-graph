@@ -21,24 +21,22 @@ class OrganizationGraph {
 
     // Physics simulation
     this.physicsEnabled = true;
-    this.animationId = null;
-    // Visual settings
+    this.animationId = null;    // Visual settings
     this.nodeRadius = 25; // Default, used if no specific type matches
     this.employeeRadius = 12.5; // Half the default size
     this.projectRadius = 22; // Custom size for projects
-    //team radius is dynamic based on number of employees
+    // Team radius is dynamic based on number of employees
     this.nodeColors = {
       employee: "#64b5f6",
+      teamOwner: "#1976d2", // Darker blue for team owners
       team: "#81c784",
       project: "#9370DB",
     };
     this.edgeColors = {
       member: "#81c784",
-      mentor: "#ffb74d",
       assignment: "#9370DB",
     };
     this.showProjects = true;
-    this.showMentorships = true;
     this.showTeams = true;
     // Search functionality
     this.highlightedNode = null;
@@ -92,11 +90,12 @@ class OrganizationGraph {
       return Math.sqrt(dx * dx + dy * dy) < radius;
     });
   }
-
   // Helper method to get the radius for any node
   getNodeRadius(node) {
-    if (node.type === "employee") return this.employeeRadius;
-    else if (node.type === "team") return node.radius;
+    if (node.type === "employee") {
+      // Double the radius for team owners
+      return node.isTeamOwner ? this.employeeRadius * 2 : this.employeeRadius;
+    } else if (node.type === "team") return node.radius;
     else if (node.type === "project") return this.projectRadius;
     return this.nodeRadius; // Default fallback
   }
@@ -120,6 +119,10 @@ class OrganizationGraph {
     this.lastMousePos = { x: e.clientX, y: e.clientY };
   }
   onMouseMove(e) {
+    if(!this.lastMousePos){
+        e.preventDefault();
+        return;
+    }
     const dx = e.clientX - this.lastMousePos.x;
     const dy = e.clientY - this.lastMousePos.y;
 
@@ -189,11 +192,10 @@ class OrganizationGraph {
     this.camera.x = mousePos.x - worldPos.x * this.camera.zoom;
     this.camera.y = mousePos.y - worldPos.y * this.camera.zoom;
   }
-
   loadData(data) {
+    this.data = data; // Store reference to data for tooltip access
     this.createNodesAndEdges(data);
   }
-
   createNodesAndEdges(data) {
     this.nodes = [];
     this.edges = [];
@@ -207,6 +209,14 @@ class OrganizationGraph {
     data.employees.forEach((employee) => {
       if (employee.team) {
         teamSizes[employee.team] = (teamSizes[employee.team] || 0) + 1;
+      }
+    });
+
+    // Create a map of team owners for easy lookup
+    const teamOwners = new Set();
+    data.teams.forEach((team) => {
+      if (team.owner) {
+        teamOwners.add(team.owner);
       }
     });
 
@@ -277,9 +287,7 @@ class OrganizationGraph {
         vy: 0,
         fixed: false,
       });
-    });
-
-    // Create employee nodes within departments
+    });    // Create employee nodes within departments
     data.employees.forEach((employee, index) => {
       const dept = this.departments.find((d) => d.id === employee.department);
       if (!dept) {
@@ -296,6 +304,7 @@ class OrganizationGraph {
         role: employee.role,
         team: employee.team,
         department: employee.department,
+        isTeamOwner: teamOwners.has(employee.id), // Mark team owners
         x: dept.x + Math.cos(angle) * radius,
         y: dept.y + Math.sin(angle) * radius,
         vx: 0,
@@ -543,7 +552,7 @@ class OrganizationGraph {
       }
     });
   }
-  
+
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -610,10 +619,12 @@ class OrganizationGraph {
         baseRadius +
         (isHovered ? 5 : 0) +
         (isHighlighted ? 8 : 0) +
-        (isSelected ? 6 : 0);
-
-      // Node circle
-      this.ctx.fillStyle = this.nodeColors[node.type];
+        (isSelected ? 6 : 0);      // Node circle - determine color based on node type and team owner status
+      if (node.type === "employee" && node.isTeamOwner) {
+        this.ctx.fillStyle = this.nodeColors.teamOwner;
+      } else {
+        this.ctx.fillStyle = this.nodeColors[node.type];
+      }
 
       // Special highlighting for search results
       if (isHighlighted) {
@@ -663,20 +674,32 @@ class OrganizationGraph {
         }
       } else {
         this.ctx.fillText(node.label, node.x, node.y);
-      } // Show additional info on hover
+      }      // Show additional info on hover
       if (isHovered) {
         let info;
         if (node.type === "employee") {
           info = node.role;
+          if (node.isTeamOwner) {
+            info += " (Team Owner)";
+          }
         } else if (node.type === "project") {
-          info = node.description;
-        } else if (node.type === "team") {
-          // Show team description and employee count
+          info = node.description;        } else if (node.type === "team") {
+          // Show team description, employee count, and owner
           const employeeCount = node.employeeCount || 0;
+          let ownerInfo = "";
+          if (this.data && this.data.teams) {
+            const teamData = this.data.teams.find(t => t.id === node.id);
+            if (teamData && teamData.owner && this.data.employees) {
+              const ownerEmployee = this.data.employees.find(emp => emp.id === teamData.owner);
+              if (ownerEmployee) {
+                ownerInfo = `\nOwner: ${ownerEmployee.name}`;
+              }
+            }
+          }
           info = `${node.description}\n${employeeCount} employee${
             employeeCount !== 1 ? "s" : ""
-          }`;
-        } else {
+          }${ownerInfo}`;
+        }else {
           info = node.description;
         }
 
