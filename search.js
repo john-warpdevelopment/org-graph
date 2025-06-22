@@ -11,10 +11,12 @@ function showSearchResults(results) {
   }
 
   searchResults.style.display = "block";
-
   results.forEach((node) => {
     const resultItem = document.createElement("div");
     resultItem.className = "search-result-item";
+    
+    // Ensure the entire block is clickable
+    resultItem.style.cursor = "pointer";
 
     const typeSpan = document.createElement("div");
     typeSpan.className = "search-result-type";
@@ -32,15 +34,28 @@ function showSearchResults(results) {
       resultItem.appendChild(roleDiv);
     } else {
       resultItem.appendChild(nameDiv);
-    }
+    }    resultItem.insertBefore(typeSpan, resultItem.firstChild);
 
-    resultItem.insertBefore(typeSpan, resultItem.firstChild);
-
-    resultItem.addEventListener("click", () => {
+    // Add click handler to the main result item
+    const clickHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       graph.highlightNode(node);
       searchResults.style.display = "none";
       searchInput.blur();
-    });
+    };
+
+    resultItem.addEventListener("click", clickHandler);
+    
+    // Ensure all child elements also trigger the click
+    typeSpan.addEventListener("click", clickHandler);
+    nameDiv.addEventListener("click", clickHandler);
+    if (node.role) {
+      const roleDiv = resultItem.querySelector("div:last-child");
+      if (roleDiv) {
+        roleDiv.addEventListener("click", clickHandler);
+      }
+    }
 
     searchResults.appendChild(resultItem);
   });

@@ -5,5 +5,5 @@
 - [x] Show department on hover
 - [x] Add department dropdown in controls with all option
 - [ ] Bug: on load before clicking hover broken
-- [ ] Bug: search results click on block doesn't work only clicking on the text
+- [x] Bug: search results click on block doesn't work only clicking on the text
 - [ ] Integration with system
