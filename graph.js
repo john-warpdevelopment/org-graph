@@ -35,9 +35,9 @@ class OrganizationGraph {
     this.edgeColors = {
       member: "#81c784",
       assignment: "#9370DB",
-    };
-    this.showProjects = true;
+    };    this.showProjects = true;
     this.showTeams = true;
+    this.departmentFilter = "all"; // "all" or department ID
     // Search functionality
     this.highlightedNode = null;
     this.searchResults = []; // Selection functionality
@@ -354,9 +354,13 @@ class OrganizationGraph {
 
     this.centerGraph();
   }
-
   getVisibleNodes() {
     return this.nodes.filter((node) => {
+      // Department filter
+      if (this.departmentFilter !== "all" && node.department !== this.departmentFilter) {
+        return false;
+      }
+      
       if (node.type === "project" && !this.showProjects) return false;
       if (node.type === "team" && !this.showTeams) return false;
       // If a team is hidden, also hide its members if they aren't part of another visible entity (e.g. project)
@@ -563,33 +567,6 @@ class OrganizationGraph {
     const visibleNodes = this.getVisibleNodes();
     const visibleEdges = this.getVisibleEdges();
 
-    // Draw department containers
-    if (this.departments) {
-      this.departments.forEach((dept) => {
-        // Department box
-        this.ctx.strokeStyle = "#888888"; // Grey border
-        this.ctx.lineWidth = 2; // Standard line width
-
-        const x = dept.x - dept.width / 2;
-        const y = dept.y - dept.height / 2;
-
-        // this.ctx.fillRect(x, y, dept.width, dept.height); // Removed fillRect
-        this.ctx.strokeRect(x, y, dept.width, dept.height);
-
-        // Department label
-        this.ctx.fillStyle = "#ffffff"; // White for text
-        this.ctx.font = 'bold 18px "Segoe UI"';
-        this.ctx.textAlign = "center";
-        this.ctx.textBaseline = "top";
-        this.ctx.fillText(dept.name, dept.x, y + 10);
-
-        // Department description
-        this.ctx.fillStyle = "#ffffff"; // White for description
-        this.ctx.font = '12px "Segoe UI"';
-        this.ctx.fillText(dept.description, dept.x, y + 35);
-      });
-    }
-
     // Draw edges
     visibleEdges.forEach((edge) => {
       const source = visibleNodes.find((n) => n.id === edge.source);
@@ -674,7 +651,8 @@ class OrganizationGraph {
         }
       } else {
         this.ctx.fillText(node.label, node.x, node.y);
-      } // Show additional info on hover
+      }
+      // Show additional info on hover
       if (isHovered) {
         let info;
         if (node.type === "employee") {
@@ -682,8 +660,21 @@ class OrganizationGraph {
           if (node.isTeamOwner) {
             info += " (Team Owner)";
           }
-        } else if (node.type === "project") {
+          // Add department information
+          if (node.department && this.data && this.data.departments) {
+            const deptData = this.data.departments.find(d => d.id === node.department);
+            if (deptData) {
+              info += `\nDepartment: ${deptData.name}`;
+            }
+          }        } else if (node.type === "project") {
           info = node.description;
+          // Add department information
+          if (node.department && this.data && this.data.departments) {
+            const deptData = this.data.departments.find(d => d.id === node.department);
+            if (deptData) {
+              info += `\nDepartment: ${deptData.name}`;
+            }
+          }
         } else if (node.type === "team") {
           // Show team description, employee count, and owner
           const employeeCount = node.employeeCount || 0;
@@ -702,6 +693,13 @@ class OrganizationGraph {
           info = `${node.description}\n${employeeCount} employee${
             employeeCount !== 1 ? "s" : ""
           }${ownerInfo}`;
+          // Add department information
+          if (node.department && this.data && this.data.departments) {
+            const deptData = this.data.departments.find(d => d.id === node.department);
+            if (deptData) {
+              info += `\nDepartment: ${deptData.name}`;
+            }
+          }
         } else {
           info = node.description;
         }
@@ -772,11 +770,16 @@ class OrganizationGraph {
     const btn = document.getElementById("toggle-projects-btn");
     btn.textContent = this.showProjects ? "Hide Projects" : "Show Projects";
   }
-
   toggleTeamsVisibility() {
     this.showTeams = !this.showTeams;
     const btn = document.getElementById("toggle-teams-btn");
     btn.textContent = this.showTeams ? "Hide Teams" : "Show Teams";
+  }
+
+  setDepartmentFilter(departmentId) {
+    this.departmentFilter = departmentId;
+    // Re-center the graph when department filter changes
+    this.centerGraph();
   }
 
   resetView() {

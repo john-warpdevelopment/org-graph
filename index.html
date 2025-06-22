@@ -226,8 +226,13 @@
             </div>
             <div id="search-results" class="search-results"></div>
         </div>
-        
-        <div class="controls">
+          <div class="controls">
+            <div class="control-group">
+                <label>Department Filter</label>
+                <select id="department-filter" style="background: #4a4a4a; border: 1px solid #666; color: #fff; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 11px;">
+                    <option value="all">All Departments</option>
+                </select>
+            </div>
             <div class="control-group">
                 <label>View Controls</label>
                 <button id="reset-view-btn">Reset View</button>
@@ -310,13 +315,37 @@
             team: 'https://your-team-system.com/team/',
             project: 'https://your-project-system.com/project/'
         });
-        graph.loadData(data);        
-        // Existing button event listeners
+        graph.loadData(data);          // Existing button event listeners
         document.getElementById('physics-btn').addEventListener('click', () => graph.togglePhysics());
         document.getElementById('reset-view-btn').addEventListener('click', () => graph.resetView());
         document.getElementById('toggle-projects-btn').addEventListener('click', () => graph.toggleProjectsVisibility());
         document.getElementById('toggle-teams-btn').addEventListener('click', () => graph.toggleTeamsVisibility());
-        document.getElementById('edit-selected-btn').addEventListener('click', () => graph.openSelectedNode());        
+        document.getElementById('edit-selected-btn').addEventListener('click', () => graph.openSelectedNode());
+
+        // Department filter functionality
+        const departmentFilter = document.getElementById('department-filter');
+        
+        // Populate department dropdown
+        function populateDepartmentFilter() {
+            // Clear existing options except "All Departments"
+            departmentFilter.innerHTML = '<option value="all">All Departments</option>';
+            
+            // Add department options
+            data.departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.name;
+                departmentFilter.appendChild(option);
+            });
+        }
+        
+        // Handle department filter change
+        departmentFilter.addEventListener('change', (e) => {
+            graph.setDepartmentFilter(e.target.value);
+        });
+        
+        // Initialize department filter
+        populateDepartmentFilter();
     </script>
     <script src="search.js" ></script>
 </body>
