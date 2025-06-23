@@ -520,39 +520,8 @@ class OrganizationGraph {
           // Stop very small movements to prevent endless drift
           node.vx = 0;
           node.vy = 0;
-        }
-
-        node.x += node.vx;
-        node.y += node.vy; // Constrain nodes within their department boundaries
-        if (node.department && this.departments) {
-          const dept = this.departments.find((d) => d.id === node.department);
-          if (dept) {
-            const nodeRadius = this.getNodeRadius(node);
-
-            const margin = nodeRadius + 10;
-            const minX = dept.x - dept.width / 2 + margin;
-            const maxX = dept.x + dept.width / 2 - margin;
-            const minY = dept.y - dept.height / 2 + margin;
-            const maxY = dept.y + dept.height / 2 - margin;
-
-            if (node.x < minX) {
-              node.x = minX;
-              node.vx = Math.abs(node.vx) * 0.5; // Bounce back with reduced velocity
-            }
-            if (node.x > maxX) {
-              node.x = maxX;
-              node.vx = -Math.abs(node.vx) * 0.5;
-            }
-            if (node.y < minY) {
-              node.y = minY;
-              node.vy = Math.abs(node.vy) * 0.5;
-            }
-            if (node.y > maxY) {
-              node.y = maxY;
-              node.vy = -Math.abs(node.vy) * 0.5;
-            }
-          }
-        }
+        }        node.x += node.vx;
+        node.y += node.vy;
       }
     });
   }
