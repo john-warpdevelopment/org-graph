@@ -10,3 +10,4 @@
 - [x] Bug: Team 4 employees not linked to team
 - [x] Change initial draw to create teams farther from each other ? or just draw employees closer to the teams
 - [x] When clicking on a node also highlight all the edges of that node
+- [x] Bug: when employee is linked only to a project but not team the project pushes them around

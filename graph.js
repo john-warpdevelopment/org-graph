@@ -548,7 +548,7 @@ class OrganizationGraph {
           const isProjectCollision = nodeA.type === "project" || nodeB.type === "project";
           
           if (isProjectCollision) {
-            // For project collisions: just separate them without applying force
+            // For project collisions: handle differently based on what's colliding
             if (distance < 1) {
               // If nodes are at exactly the same position, add small random offset
               distance = 1;
@@ -556,20 +556,35 @@ class OrganizationGraph {
               nodeB.x = nodeA.x + Math.cos(randomAngle) * minSeparation;
               nodeB.y = nodeA.y + Math.sin(randomAngle) * minSeparation;
             } else {
-              // Gently separate overlapping nodes without force
+              // One-way separation: only move the project away, not the employee
               const separationDistance = minSeparation - distance;
-              const moveDistance = separationDistance / 2; // Split the movement between both nodes
+              const moveX = (dx / distance) * separationDistance;
+              const moveY = (dy / distance) * separationDistance;
               
-              const moveX = (dx / distance) * moveDistance;
-              const moveY = (dy / distance) * moveDistance;
-              
-              if (!nodeA.fixed) {
+              // If nodeA is project and nodeB is employee, move project away
+              if (nodeA.type === "project" && nodeB.type === "employee" && !nodeA.fixed) {
                 nodeA.x -= moveX;
                 nodeA.y -= moveY;
               }
-              if (!nodeB.fixed) {
+              // If nodeB is project and nodeA is employee, move project away  
+              else if (nodeB.type === "project" && nodeA.type === "employee" && !nodeB.fixed) {
                 nodeB.x += moveX;
                 nodeB.y += moveY;
+              }
+              // If both are projects, split the movement between them
+              else if (nodeA.type === "project" && nodeB.type === "project") {
+                const moveDistance = separationDistance / 2;
+                const halfMoveX = (dx / distance) * moveDistance;
+                const halfMoveY = (dy / distance) * moveDistance;
+                
+                if (!nodeA.fixed) {
+                  nodeA.x -= halfMoveX;
+                  nodeA.y -= halfMoveY;
+                }
+                if (!nodeB.fixed) {
+                  nodeB.x += halfMoveX;
+                  nodeB.y += halfMoveY;
+                }
               }
             }
           } else {
@@ -661,7 +676,7 @@ class OrganizationGraph {
           const fy = (dy / distance) * force;
 
           if (edge.type === "assignment") {
-            // For project assignments: employees don't pull toward projects, but projects gravitate slightly toward employees
+            // For project assignments: projects are attracted to employees, but employees don't get pulled toward projects
             if (!target.fixed) {
               // Project gravitates toward employee (but with reduced force)
               target.fx -= fx * 0.3; // Much weaker pull from project side
