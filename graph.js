@@ -371,19 +371,28 @@ class OrganizationGraph {
     // Create team membership edges - only connect employees to teams
     data.employees.forEach((employee) => {
       if (employee.team) {
+        // Verify that the source is actually an employee node
+        const sourceEmployee = this.nodes.find(
+          (n) => n.id === employee.id && n.type === "employee"
+        );
         // Verify that the target is actually a team node, not another entity type
         const targetTeam = this.nodes.find(
           (n) => n.id === employee.team && n.type === "team"
         );
         
-        if (targetTeam) {
+        if (sourceEmployee && targetTeam) {
           this.edges.push({
             source: employee.id,
             target: employee.team,
             type: "member",
           });
         } else {
-          console.warn(`Employee ${employee.id} (${employee.name}) references team ${employee.team} which doesn't exist as a team node`);
+          if (!sourceEmployee) {
+            console.warn(`Source employee ${employee.id} not found as employee node for team membership`);
+          }
+          if (!targetTeam) {
+            console.warn(`Employee ${employee.id} (${employee.name}) references team ${employee.team} which doesn't exist as a team node`);
+          }
         }
       }
     });
@@ -458,35 +467,18 @@ class OrganizationGraph {
   }
 
   getVisibleEdges() {
+    const visibleNodes = this.getVisibleNodes();
+    
     return this.edges.filter((edge) => {
       if (edge.type === "assignment" && !this.showProjects) return false;
       if (edge.type === "member" && !this.showTeams) return false;
 
-      // Ensure both source and target nodes of an edge are visible
-      const sourceNode = this.nodes.find((n) => n.id === edge.source);
-      const targetNode = this.nodes.find((n) => n.id === edge.target);
+      // Ensure both source and target nodes are in the visible nodes list
+      const sourceNode = visibleNodes.find((n) => n.id === edge.source);
+      const targetNode = visibleNodes.find((n) => n.id === edge.target);
 
-      if (sourceNode && targetNode) {
-        if (sourceNode.type === "project" && !this.showProjects) return false;
-        if (targetNode.type === "project" && !this.showProjects) return false;
-        if (sourceNode.type === "team" && !this.showTeams) return false;
-        if (targetNode.type === "team" && !this.showTeams) return false;
-
-        // If a team is hidden, hide member edges unless the employee is otherwise visible
-        if (edge.type === "member" && !this.showTeams) {
-          const employeeNode =
-            sourceNode.type === "employee" ? sourceNode : targetNode;
-          const teamNode = sourceNode.type === "team" ? sourceNode : targetNode;
-          if (teamNode && !this.showTeams) {
-            const isEmployeeVisible = this.getVisibleNodes().some(
-              (n) => n.id === employeeNode.id
-            );
-            if (!isEmployeeVisible) return false;
-          }
-        }
-      }
-
-      return true;
+      // Only show edges where both nodes are visible
+      return sourceNode && targetNode;
     });
   }
 
@@ -561,8 +553,21 @@ class OrganizationGraph {
 
     // Edge attraction
     visibleEdges.forEach((edge) => {
-      const source = visibleNodes.find((n) => n.id === edge.source);
-      const target = visibleNodes.find((n) => n.id === edge.target);
+      let source, target;
+      
+      if (edge.type === "member") {
+        // Member edges: employee -> team
+        source = visibleNodes.find((n) => n.id === edge.source && n.type === "employee");
+        target = visibleNodes.find((n) => n.id === edge.target && n.type === "team");
+      } else if (edge.type === "assignment") {
+        // Assignment edges: employee -> project
+        source = visibleNodes.find((n) => n.id === edge.source && n.type === "employee");
+        target = visibleNodes.find((n) => n.id === edge.target && n.type === "project");
+      } else {
+        // Fallback for any other edge types
+        source = visibleNodes.find((n) => n.id === edge.source);
+        target = visibleNodes.find((n) => n.id === edge.target);
+      }
 
       if (source && target) {
         const dx = target.x - source.x;
@@ -639,8 +644,21 @@ class OrganizationGraph {
 
     // Draw edges
     visibleEdges.forEach((edge) => {
-      const source = visibleNodes.find((n) => n.id === edge.source);
-      const target = visibleNodes.find((n) => n.id === edge.target);
+      let source, target;
+      
+      if (edge.type === "member") {
+        // Member edges: employee -> team
+        source = visibleNodes.find((n) => n.id === edge.source && n.type === "employee");
+        target = visibleNodes.find((n) => n.id === edge.target && n.type === "team");
+      } else if (edge.type === "assignment") {
+        // Assignment edges: employee -> project
+        source = visibleNodes.find((n) => n.id === edge.source && n.type === "employee");
+        target = visibleNodes.find((n) => n.id === edge.target && n.type === "project");
+      } else {
+        // Fallback for any other edge types
+        source = visibleNodes.find((n) => n.id === edge.source);
+        target = visibleNodes.find((n) => n.id === edge.target);
+      }
 
       if (source && target) {
         this.ctx.strokeStyle = this.edgeColors[edge.type];
