@@ -7,6 +7,6 @@
 - [ ] Bug: on load before clicking hover broken
 - [x] Bug: search results click on block doesn't work only clicking on the text
 - [ ] Integration with system
-- [ ] Bug: Storefront employees not linked to team
-- [ ] Change initial draw to create teams farther from each other ? or just draw employees closer to the teams
+- [x] Bug: Team 4 employees not linked to team
+- [x] Change initial draw to create teams farther from each other ? or just draw employees closer to the teams
 - [ ] When clicking on a node also highlight all the edges of that node

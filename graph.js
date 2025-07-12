@@ -300,7 +300,7 @@ class OrganizationGraph {
       teamsByDept[team.department].push(team);
     });
 
-    // Position teams within each department with proper spacing
+    // Position teams within each department around the edges
     Object.keys(teamsByDept).forEach((deptId) => {
       const dept = this.departments.find((d) => d.id === deptId);
       if (!dept) {
@@ -318,14 +318,16 @@ class OrganizationGraph {
           employeeCount * radiusPerEmployee
         );
 
-        // Position teams in a horizontal line with spacing based on team size
-        const teamSpacing = 200;
-        const startX = dept.x - ((teams.length - 1) * teamSpacing) / 2;
-        const x = startX + index * teamSpacing;
-        const y = dept.y - 150; // Position teams above center
+        // Position teams around the perimeter of the department
+        const perimeter = teams.length;
+        const angle = (index / perimeter) * 2 * Math.PI;
+        const edgeDistance = 500; // Distance from department center to edge
+        
+        const x = dept.x + Math.cos(angle) * edgeDistance;
+        const y = dept.y + Math.sin(angle) * edgeDistance;
 
         // Add small random offset to prevent perfect alignment
-        const randomOffset = () => (Math.random() - 0.5) * 30;
+        const randomOffset = () => (Math.random() - 0.5) * 20;
 
         this.nodes.push({
           id: team.id,
@@ -342,15 +344,40 @@ class OrganizationGraph {
           fixed: false,
         });
       });
-    }); // Create employee nodes within departments
+    });    // Create employee nodes positioned near their teams
     data.employees.forEach((employee, index) => {
       const dept = this.departments.find((d) => d.id === employee.department);
       if (!dept) {
         console.warn(`Department not found for employee ${employee.id}`);
         return;
       }
-      const angle = Math.random() * 2 * Math.PI;
-      const radius = 50 + Math.random() * 150;
+
+      let x, y;
+      
+      if (employee.team) {
+        // Find the team node to position employee near it
+        const teamNode = this.nodes.find((n) => n.id === employee.team && n.type === "team");
+        if (teamNode) {
+          // Position employee in a circle around their team
+          const angle = Math.random() * 2 * Math.PI;
+          const distanceFromTeam = 60 + Math.random() * 40; // 60-100px from team
+          
+          x = teamNode.x + Math.cos(angle) * distanceFromTeam;
+          y = teamNode.y + Math.sin(angle) * distanceFromTeam;
+        } else {
+          // Fallback: random position in department if team not found
+          const angle = Math.random() * 2 * Math.PI;
+          const radius = 50 + Math.random() * 150;
+          x = dept.x + Math.cos(angle) * radius;
+          y = dept.y + Math.sin(angle) * radius;
+        }
+      } else {
+        // Employee has no team: position randomly in department center area
+        const angle = Math.random() * 2 * Math.PI;
+        const radius = 30 + Math.random() * 100; // Closer to center
+        x = dept.x + Math.cos(angle) * radius;
+        y = dept.y + Math.sin(angle) * radius;
+      }
 
       this.nodes.push({
         id: employee.id,
@@ -360,8 +387,8 @@ class OrganizationGraph {
         team: employee.team,
         department: employee.department,
         isTeamOwner: teamOwners.has(employee.id), // Mark team owners
-        x: dept.x + Math.cos(angle) * radius,
-        y: dept.y + Math.sin(angle) * radius,
+        x: x,
+        y: y,
         vx: 0,
         vy: 0,
         fixed: false,
