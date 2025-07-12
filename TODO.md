@@ -9,3 +9,4 @@
 - [ ] Integration with system
 - [ ] Bug: Storefront employees not linked to team
 - [ ] Change initial draw to create teams farther from each other ? or just draw employees closer to the teams
+- [ ] When clicking on a node also highlight all the edges of that node
