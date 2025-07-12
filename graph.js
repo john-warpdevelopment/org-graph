@@ -20,7 +20,7 @@ class OrganizationGraph {
     this.dragThreshold = 5; // Pixels moved before considering it a drag
 
     // Physics simulation
-    this.physicsEnabled = true;
+    this.physicsEnabled = false; // Start with physics paused
     this.animationId = null; // Visual settings
     this.nodeRadius = 25; // Default, used if no specific type matches
     this.employeeRadius = 12.5; // Half the default size
@@ -56,7 +56,16 @@ class OrganizationGraph {
     };
 
     this.setupEventListeners();
+    this.initializeUI();
     this.startAnimation();
+  }
+
+  initializeUI() {
+    // Set initial button states based on current settings
+    const physicsBtn = document.getElementById("physics-btn");
+    if (physicsBtn) {
+      physicsBtn.textContent = this.physicsEnabled ? "Pause Physics" : "Resume Physics";
+    }
   }
 
   resizeCanvas() {
@@ -237,55 +246,101 @@ class OrganizationGraph {
       });
     });
 
-    // Create project nodes within departments
-    data.projects.forEach((project, index) => {
-      const dept = this.departments.find((d) => d.id === project.department);
+    // Create project nodes with better spacing to avoid overlaps
+    const projectsByDept = {};
+    data.projects.forEach((project) => {
+      if (!projectsByDept[project.department]) {
+        projectsByDept[project.department] = [];
+      }
+      projectsByDept[project.department].push(project);
+    });
+
+    // Position projects within each department with proper spacing
+    Object.keys(projectsByDept).forEach((deptId) => {
+      const dept = this.departments.find((d) => d.id === deptId);
       if (!dept) {
-        console.warn(`Department not found for project ${project.id}`);
+        console.warn(`Department not found for projects in ${deptId}`);
         return;
       }
-      // Simple positioning for now, distribute them a bit
-      const projectAngle = (index / data.projects.length) * 2 * Math.PI;
-      const projectRadiusOffset = dept.width / 4; // Place them within the department
 
-      this.nodes.push({
-        id: project.id,
-        label: project.name,
-        type: "project",
-        description: project.description,
-        department: project.department,
-        x: dept.x + Math.cos(projectAngle) * projectRadiusOffset,
-        y: dept.y + Math.sin(projectAngle) * projectRadiusOffset + 50, // Offset Y to avoid overlap with teams
-        vx: 0,
-        vy: 0,
-        fixed: false,
+      const projects = projectsByDept[deptId];
+      projects.forEach((project, index) => {
+        // Create a grid-like positioning for projects to avoid overlaps
+        const projectsPerRow = Math.ceil(Math.sqrt(projects.length));
+        const row = Math.floor(index / projectsPerRow);
+        const col = index % projectsPerRow;
+        
+        // Add some randomness to avoid perfect grid alignment
+        const baseSpacing = 150;
+        const randomOffset = () => (Math.random() - 0.5) * 40;
+        
+        const x = dept.x + (col - (projectsPerRow - 1) / 2) * baseSpacing + randomOffset();
+        const y = dept.y + (row - (Math.ceil(projects.length / projectsPerRow) - 1) / 2) * baseSpacing + 100 + randomOffset();
+
+        this.nodes.push({
+          id: project.id,
+          label: project.name,
+          type: "project",
+          description: project.description,
+          department: project.department,
+          x: x,
+          y: y,
+          vx: 0,
+          vy: 0,
+          fixed: false,
+        });
       });
     });
-    // Create team nodes within departments
-    data.teams.forEach((team, index) => {
-      const dept = this.departments.find((d) => d.id === team.department);
-      const teamAngle = (index % 3) * ((2 * Math.PI) / 3);
-      const radiusPerEmployee = 12;
-      const minTeamRadius = 25;
-      const employeeCount = teamSizes[team.id] || 0;
-      const teamRadius = Math.max(
-        minTeamRadius,
-        employeeCount * radiusPerEmployee
-      );
+    // Create team nodes with better spacing to avoid overlaps
+    const teamsByDept = {};
+    data.teams.forEach((team) => {
+      if (!teamsByDept[team.department]) {
+        teamsByDept[team.department] = [];
+      }
+      teamsByDept[team.department].push(team);
+    });
 
-      this.nodes.push({
-        id: team.id,
-        label: team.name,
-        type: "team",
-        description: team.description,
-        department: team.department,
-        radius: teamRadius,
-        employeeCount: employeeCount, // Store employee count for reference
-        x: dept.x + Math.cos(teamAngle) * 100,
-        y: dept.y + Math.sin(teamAngle) * 100,
-        vx: 0,
-        vy: 0,
-        fixed: false,
+    // Position teams within each department with proper spacing
+    Object.keys(teamsByDept).forEach((deptId) => {
+      const dept = this.departments.find((d) => d.id === deptId);
+      if (!dept) {
+        console.warn(`Department not found for teams in ${deptId}`);
+        return;
+      }
+
+      const teams = teamsByDept[deptId];
+      teams.forEach((team, index) => {
+        const radiusPerEmployee = 6; // Halved from 12 to reduce size increase effect
+        const minTeamRadius = 25;
+        const employeeCount = teamSizes[team.id] || 0;
+        const teamRadius = Math.max(
+          minTeamRadius,
+          employeeCount * radiusPerEmployee
+        );
+
+        // Position teams in a horizontal line with spacing based on team size
+        const teamSpacing = 200;
+        const startX = dept.x - ((teams.length - 1) * teamSpacing) / 2;
+        const x = startX + index * teamSpacing;
+        const y = dept.y - 150; // Position teams above center
+
+        // Add small random offset to prevent perfect alignment
+        const randomOffset = () => (Math.random() - 0.5) * 30;
+
+        this.nodes.push({
+          id: team.id,
+          label: team.name,
+          type: "team",
+          description: team.description,
+          department: team.department,
+          radius: teamRadius,
+          employeeCount: employeeCount,
+          x: x + randomOffset(),
+          y: y + randomOffset(),
+          vx: 0,
+          vy: 0,
+          fixed: false,
+        });
       });
     }); // Create employee nodes within departments
     data.employees.forEach((employee, index) => {
@@ -323,6 +378,9 @@ class OrganizationGraph {
     });
 
     // Create project assignment edges
+    const missingProjects = new Set();
+    const missingEmployees = new Set();
+    
     data.employees.forEach((employee) => {
       if (employee.projects && employee.projects.length > 0) {
         employee.projects.forEach((projectId) => {
@@ -332,6 +390,7 @@ class OrganizationGraph {
           const employeeNode = this.nodes.find(
             (n) => n.id === employee.id && n.type === "employee"
           );
+          
           if (projectNode && employeeNode) {
             this.edges.push({
               source: employee.id,
@@ -339,18 +398,27 @@ class OrganizationGraph {
               type: "assignment",
             });
           } else {
-            if (!projectNode)
-              console.warn(
-                `Project node ${projectId} not found for assignment edge for employee ${employee.id}`
-              );
-            if (!employeeNode)
-              console.warn(
-                `Employee node ${employee.id} not found for assignment edge to project ${projectId}`
-              );
+            // Collect missing projects/employees for summary reporting
+            if (!projectNode) {
+              missingProjects.add(projectId);
+            }
+            if (!employeeNode) {
+              missingEmployees.add(employee.id);
+            }
           }
         });
       }
     });
+
+    // Report summary of missing data instead of individual warnings
+    if (missingProjects.size > 0) {
+      console.warn(`Found ${missingProjects.size} missing project(s) referenced in employee assignments:`, Array.from(missingProjects));
+      console.warn('These projects exist in employee.projects but not in the projects array. Assignment edges will be skipped for these.');
+    }
+    
+    if (missingEmployees.size > 0) {
+      console.warn(`Found ${missingEmployees.size} missing employee(s):`, Array.from(missingEmployees));
+    }
 
     this.centerGraph();
   }
@@ -442,16 +510,40 @@ class OrganizationGraph {
       }
     });
 
-    // Node-node repulsion
+    // Node-node repulsion with better collision handling
     for (let i = 0; i < visibleNodes.length; i++) {
       for (let j = i + 1; j < visibleNodes.length; j++) {
         const nodeA = visibleNodes[i];
         const nodeB = visibleNodes[j];
         const dx = nodeB.x - nodeA.x;
         const dy = nodeB.y - nodeA.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        let distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > 0 && distance < 250) {
+        // Handle overlapping nodes by adding a minimum distance
+        const minSeparation = (this.getNodeRadius(nodeA) + this.getNodeRadius(nodeB)) * 1.5;
+        if (distance < minSeparation) {
+          // If nodes are too close or overlapping, separate them more aggressively
+          if (distance < 1) {
+            // If nodes are at exactly the same position, add small random offset
+            distance = 1;
+            const randomAngle = Math.random() * 2 * Math.PI;
+            nodeB.x = nodeA.x + Math.cos(randomAngle) * minSeparation;
+            nodeB.y = nodeA.y + Math.sin(randomAngle) * minSeparation;
+          }
+          
+          const force = repulsionStrength * 2; // Stronger force for overlapping nodes
+          const fx = (dx / distance) * force;
+          const fy = (dy / distance) * force;
+
+          if (!nodeA.fixed) {
+            nodeA.fx -= fx;
+            nodeA.fy -= fy;
+          }
+          if (!nodeB.fixed) {
+            nodeB.fx += fx;
+            nodeB.fy += fy;
+          }
+        } else if (distance < 250) {
           const force = repulsionStrength / (distance * distance);
           const fx = (dx / distance) * force;
           const fy = (dy / distance) * force;
@@ -477,7 +569,7 @@ class OrganizationGraph {
         const dx = target.x - source.x;
         const dy = target.y - source.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const targetDistance = edge.type === "assignment" ? 110 : 240;
+        const targetDistance = edge.type === "assignment" ? 220 : 240; // Doubled project-employee distance from 110 to 220
 
         // Different attraction strengths based on edge type
         let edgeAttractionStrength = attractionStrength;
@@ -504,14 +596,22 @@ class OrganizationGraph {
           }
         }
       }
-    }); // Apply forces and update positions
+    });    // Apply forces and update positions
     visibleNodes.forEach((node) => {
       if (!node.fixed) {
         node.vx = (node.vx + node.fx) * damping;
         node.vy = (node.vy + node.fy) * damping;
 
-        // Additional velocity-based damping for faster settling
+        // Limit maximum velocity to prevent nodes from "shooting away"
+        const maxVelocity = 10;
         const velocity = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+        if (velocity > maxVelocity) {
+          const scale = maxVelocity / velocity;
+          node.vx *= scale;
+          node.vy *= scale;
+        }
+
+        // Additional velocity-based damping for faster settling
         if (velocity > 0.1) {
           const velocityDamping = Math.max(0.8, 1 - velocity * 0.01);
           node.vx *= velocityDamping;
@@ -520,7 +620,9 @@ class OrganizationGraph {
           // Stop very small movements to prevent endless drift
           node.vx = 0;
           node.vy = 0;
-        }        node.x += node.vx;
+        }
+
+        node.x += node.vx;
         node.y += node.vy;
       }
     });
