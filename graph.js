@@ -513,40 +513,77 @@ class OrganizationGraph {
         // Handle overlapping nodes by adding a minimum distance
         const minSeparation = (this.getNodeRadius(nodeA) + this.getNodeRadius(nodeB)) * 1.5;
         if (distance < minSeparation) {
-          // If nodes are too close or overlapping, separate them more aggressively
-          if (distance < 1) {
-            // If nodes are at exactly the same position, add small random offset
-            distance = 1;
-            const randomAngle = Math.random() * 2 * Math.PI;
-            nodeB.x = nodeA.x + Math.cos(randomAngle) * minSeparation;
-            nodeB.y = nodeA.y + Math.sin(randomAngle) * minSeparation;
-          }
+          // Check if either node is a project
+          const isProjectCollision = nodeA.type === "project" || nodeB.type === "project";
           
-          const force = repulsionStrength * 2; // Stronger force for overlapping nodes
-          const fx = (dx / distance) * force;
-          const fy = (dy / distance) * force;
+          if (isProjectCollision) {
+            // For project collisions: just separate them without applying force
+            if (distance < 1) {
+              // If nodes are at exactly the same position, add small random offset
+              distance = 1;
+              const randomAngle = Math.random() * 2 * Math.PI;
+              nodeB.x = nodeA.x + Math.cos(randomAngle) * minSeparation;
+              nodeB.y = nodeA.y + Math.sin(randomAngle) * minSeparation;
+            } else {
+              // Gently separate overlapping nodes without force
+              const separationDistance = minSeparation - distance;
+              const moveDistance = separationDistance / 2; // Split the movement between both nodes
+              
+              const moveX = (dx / distance) * moveDistance;
+              const moveY = (dy / distance) * moveDistance;
+              
+              if (!nodeA.fixed) {
+                nodeA.x -= moveX;
+                nodeA.y -= moveY;
+              }
+              if (!nodeB.fixed) {
+                nodeB.x += moveX;
+                nodeB.y += moveY;
+              }
+            }
+          } else {
+            // Normal collision handling for non-project nodes
+            if (distance < 1) {
+              // If nodes are at exactly the same position, add small random offset
+              distance = 1;
+              const randomAngle = Math.random() * 2 * Math.PI;
+              nodeB.x = nodeA.x + Math.cos(randomAngle) * minSeparation;
+              nodeB.y = nodeA.y + Math.sin(randomAngle) * minSeparation;
+            }
+            
+            const force = repulsionStrength * 2; // Stronger force for overlapping nodes
+            const fx = (dx / distance) * force;
+            const fy = (dy / distance) * force;
 
-          if (!nodeA.fixed) {
-            nodeA.fx -= fx;
-            nodeA.fy -= fy;
-          }
-          if (!nodeB.fixed) {
-            nodeB.fx += fx;
-            nodeB.fy += fy;
+            if (!nodeA.fixed) {
+              nodeA.fx -= fx;
+              nodeA.fy -= fy;
+            }
+            if (!nodeB.fixed) {
+              nodeB.fx += fx;
+              nodeB.fy += fy;
+            }
           }
         } else if (distance < 250) {
-          const force = repulsionStrength / (distance * distance);
-          const fx = (dx / distance) * force;
-          const fy = (dy / distance) * force;
+          // Check if either node is a project - projects only repel at collision distance
+          const hasProject = nodeA.type === "project" || nodeB.type === "project";
+          
+          if (!hasProject) {
+            // Normal repulsion for non-project nodes
+            const force = repulsionStrength / (distance * distance);
+            const fx = (dx / distance) * force;
+            const fy = (dy / distance) * force;
 
-          if (!nodeA.fixed) {
-            nodeA.fx -= fx;
-            nodeA.fy -= fy;
+            if (!nodeA.fixed) {
+              nodeA.fx -= fx;
+              nodeA.fy -= fy;
+            }
+            if (!nodeB.fixed) {
+              nodeB.fx += fx;
+              nodeB.fy += fy;
+            }
           }
-          if (!nodeB.fixed) {
-            nodeB.fx += fx;
-            nodeB.fy += fy;
-          }
+          // Projects only repel at collision distance (handled above in minSeparation check)
         }
       }
     }
@@ -573,7 +610,9 @@ class OrganizationGraph {
         const dx = target.x - source.x;
         const dy = target.y - source.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const targetDistance = edge.type === "assignment" ? 220 : 240;
+        
+        // Set target distance based on edge type - no minimum distance for projects
+        const targetDistance = edge.type === "assignment" ? 0 : 240;
 
         // Different attraction strengths based on edge type
         let edgeAttractionStrength = attractionStrength;
@@ -590,13 +629,34 @@ class OrganizationGraph {
           const fx = (dx / distance) * force;
           const fy = (dy / distance) * force;
 
-          if (!source.fixed) {
-            source.fx += fx;
-            source.fy += fy;
-          }
-          if (!target.fixed) {
-            target.fx -= fx;
-            target.fy -= fy;
+          if (edge.type === "assignment") {
+            // For project assignments: employees don't pull toward projects, but projects gravitate slightly toward employees
+            if (!target.fixed) {
+              // Project gravitates toward employee (but with reduced force)
+              target.fx -= fx * 0.3; // Much weaker pull from project side
+              target.fy -= fy * 0.3;
+            }
+            // Employees don't get pulled toward projects at all
+          } else if (edge.type === "member") {
+            // For team membership: maintain bidirectional attraction
+            if (!source.fixed) {
+              source.fx += fx;
+              source.fy += fy;
+            }
+            if (!target.fixed) {
+              target.fx -= fx;
+              target.fy -= fy;
+            }
+          } else {
+            // Fallback: bidirectional
+            if (!source.fixed) {
+              source.fx += fx;
+              source.fy += fy;
+            }
+            if (!target.fixed) {
+              target.fx -= fx;
+              target.fy -= fy;
+            }
           }
         }
       }
