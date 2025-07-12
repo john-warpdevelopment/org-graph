@@ -310,7 +310,7 @@ class OrganizationGraph {
 
       const teams = teamsByDept[deptId];
       teams.forEach((team, index) => {
-        const radiusPerEmployee = 6; // Halved from 12 to reduce size increase effect
+        const radiusPerEmployee = 6;
         const minTeamRadius = 25;
         const employeeCount = teamSizes[team.id] || 0;
         const teamRadius = Math.max(
@@ -368,25 +368,35 @@ class OrganizationGraph {
       });
     });
 
-    // Create team membership edges
+    // Create team membership edges - only connect employees to teams
     data.employees.forEach((employee) => {
-      this.edges.push({
-        source: employee.id,
-        target: employee.team,
-        type: "member",
-      });
+      if (employee.team) {
+        // Verify that the target is actually a team node, not another entity type
+        const targetTeam = this.nodes.find(
+          (n) => n.id === employee.team && n.type === "team"
+        );
+        
+        if (targetTeam) {
+          this.edges.push({
+            source: employee.id,
+            target: employee.team,
+            type: "member",
+          });
+        } else {
+          console.warn(`Employee ${employee.id} (${employee.name}) references team ${employee.team} which doesn't exist as a team node`);
+        }
+      }
     });
 
-    // Create project assignment edges
-    const missingProjects = new Set();
-    const missingEmployees = new Set();
-    
+    // Create project assignment edges - only connect employees to projects
     data.employees.forEach((employee) => {
       if (employee.projects && employee.projects.length > 0) {
         employee.projects.forEach((projectId) => {
+          // Verify that the target is actually a project node, not another entity type
           const projectNode = this.nodes.find(
             (n) => n.id === projectId && n.type === "project"
           );
+          // Verify that the source is actually an employee node
           const employeeNode = this.nodes.find(
             (n) => n.id === employee.id && n.type === "employee"
           );
@@ -398,27 +408,16 @@ class OrganizationGraph {
               type: "assignment",
             });
           } else {
-            // Collect missing projects/employees for summary reporting
             if (!projectNode) {
-              missingProjects.add(projectId);
+              console.warn(`Project node ${projectId} not found for assignment edge for employee ${employee.id}`);
             }
             if (!employeeNode) {
-              missingEmployees.add(employee.id);
+              console.warn(`Employee node ${employee.id} not found for assignment edge to project ${projectId}`);
             }
           }
         });
       }
     });
-
-    // Report summary of missing data instead of individual warnings
-    if (missingProjects.size > 0) {
-      console.warn(`Found ${missingProjects.size} missing project(s) referenced in employee assignments:`, Array.from(missingProjects));
-      console.warn('These projects exist in employee.projects but not in the projects array. Assignment edges will be skipped for these.');
-    }
-    
-    if (missingEmployees.size > 0) {
-      console.warn(`Found ${missingEmployees.size} missing employee(s):`, Array.from(missingEmployees));
-    }
 
     this.centerGraph();
   }
@@ -569,7 +568,7 @@ class OrganizationGraph {
         const dx = target.x - source.x;
         const dy = target.y - source.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const targetDistance = edge.type === "assignment" ? 220 : 240; // Doubled project-employee distance from 110 to 220
+        const targetDistance = edge.type === "assignment" ? 220 : 240;
 
         // Different attraction strengths based on edge type
         let edgeAttractionStrength = attractionStrength;
