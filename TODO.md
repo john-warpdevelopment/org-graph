@@ -4,9 +4,9 @@
 - [x] Hide department boxes and headers
 - [x] Show department on hover
 - [x] Add department dropdown in controls with all option
-- [ ] Bug: on load before clicking hover broken
+- [x] Bug: on load before clicking hover broken
 - [x] Bug: search results click on block doesn't work only clicking on the text
-- [ ] Integration with system
+- [x] Integration with system
 - [x] Bug: Team 4 employees not linked to team
 - [x] Change initial draw to create teams farther from each other ? or just draw employees closer to the teams
-- [ ] When clicking on a node also highlight all the edges of that node
+- [x] When clicking on a node also highlight all the edges of that node

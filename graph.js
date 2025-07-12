@@ -42,6 +42,7 @@ class OrganizationGraph {
     this.highlightedNode = null;
     this.searchResults = []; // Selection functionality
     this.selectedNode = null;
+    this.highlightedEdges = new Set(); // Set of edge indices to highlight
 
     // Mouse tracking for click vs drag detection
     this.mouseDownPos = null;
@@ -121,8 +122,6 @@ class OrganizationGraph {
     } else {
       this.isDragging = false;
       this.dragTarget = null;
-      // Clear selection when clicking empty space
-      this.selectNode(null);
     }
 
     this.lastMousePos = { x: e.clientX, y: e.clientY };
@@ -167,8 +166,13 @@ class OrganizationGraph {
   onMouseUp(e) {
     // Check if this was a click (not a drag)
     if (!this.isDragging && this.dragTarget) {
+      // Clicked on a node
       this.selectNode(this.dragTarget);
+    } else if (!this.isDragging && !this.dragTarget) {
+      // Clicked on empty space (not dragged)
+      this.selectNode(null);
     }
+    // If it was a drag (this.isDragging === true), don't change selection
 
     if (this.dragTarget) {
       this.dragTarget.fixed = false;
@@ -730,7 +734,7 @@ class OrganizationGraph {
     const visibleEdges = this.getVisibleEdges();
 
     // Draw edges
-    visibleEdges.forEach((edge) => {
+    visibleEdges.forEach((edge, visibleIndex) => {
       let source, target;
       
       if (edge.type === "member") {
@@ -748,9 +752,27 @@ class OrganizationGraph {
       }
 
       if (source && target) {
-        this.ctx.strokeStyle = this.edgeColors[edge.type];
-        this.ctx.lineWidth = 2;
-        this.ctx.globalAlpha = edge.type === "assignment" ? 0.7 : 0.6;
+        // Find the original edge index in the full edges array
+        const originalEdgeIndex = this.edges.findIndex(e => 
+          e.source === edge.source && 
+          e.target === edge.target && 
+          e.type === edge.type
+        );
+        
+        // Check if this edge should be highlighted
+        const isHighlighted = this.highlightedEdges.has(originalEdgeIndex);
+        
+        if (isHighlighted) {
+          // Highlighted edge styling - 50% transparent gold
+          this.ctx.strokeStyle = "rgba(255, 215, 0, 0.5)"; // Gold with 50% opacity
+          this.ctx.lineWidth = 4;
+          this.ctx.globalAlpha = 1;
+        } else {
+          // Normal edge styling
+          this.ctx.strokeStyle = this.edgeColors[edge.type];
+          this.ctx.lineWidth = 2;
+          this.ctx.globalAlpha = edge.type === "assignment" ? 0.7 : 0.6;
+        }
 
         this.ctx.beginPath();
         this.ctx.moveTo(source.x, source.y);
@@ -1059,11 +1081,22 @@ class OrganizationGraph {
   clearSearch() {
     this.highlightedNode = null;
     this.searchResults = [];
+    this.highlightedEdges.clear();
   }
 
   // Selection functionality
   selectNode(node) {
     this.selectedNode = node;
+    
+    // Clear previous edge highlights
+    this.highlightedEdges.clear();
+    
+    // Highlight edges connected to the selected node
+    if (node) {
+      const connectedEdgeIndices = this.getConnectedEdges(node);
+      connectedEdgeIndices.forEach(index => this.highlightedEdges.add(index));
+    }
+    
     this.updateEditButton();
   }
 
@@ -1094,5 +1127,42 @@ class OrganizationGraph {
   // Method to update base URLs from external configuration
   setBaseUrls(urls) {
     this.baseUrls = { ...this.baseUrls, ...urls };
+  }
+
+  // Get all edges connected to a specific node
+  getConnectedEdges(node) {
+    if (!node) return [];
+    
+    const connectedEdges = [];
+    this.edges.forEach((edge, index) => {
+      // Check if the node is the source of the edge
+      const isSource = (edge.source === node.id);
+      // Check if the node is the target of the edge  
+      const isTarget = (edge.target === node.id);
+      
+      // For member edges: employee -> team
+      if (edge.type === "member") {
+        if (isSource && node.type === "employee") {
+          connectedEdges.push(index);
+        } else if (isTarget && node.type === "team") {
+          connectedEdges.push(index);
+        }
+      }
+      // For assignment edges: employee -> project
+      else if (edge.type === "assignment") {
+        if (isSource && node.type === "employee") {
+          connectedEdges.push(index);
+        } else if (isTarget && node.type === "project") {
+          connectedEdges.push(index);
+        }
+      }
+      // For any other edge types, use the original logic as fallback
+      else {
+        if (isSource || isTarget) {
+          connectedEdges.push(index);
+        }
+      }
+    });
+    return connectedEdges;
   }
 }
